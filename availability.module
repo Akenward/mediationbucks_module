@@ -139,6 +139,16 @@ function availability_menu(){
     'access arguments' => array('record availability'),
   );
   
+  //this creates a menu item and URL that will call the referrer set-up form
+  $items['referrer'] = array(
+    'description' => 'A form to set up a new referrer user record.',
+    'title' => 'Referrer details',
+    'page callback' => 'drupal_get_form', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
+    'page arguments' => array('referrer_setup'), //the name of the form here
+    'access arguments' => array('access content'),
+    //'access arguments' => array('record availability'),
+  );
+  
   return $items;
 }
  
@@ -1132,7 +1142,52 @@ function availability_week_limits() {
   } while ($date_today->diff($date_limits['upper'])->format('%R%a') < $availability_settings['availability_end_limit']);
   return $date_limits;
 }
-	
 
+/**
+	* Form to set up referrer as new user, blocked initially awaiting activation by office.
+	* Name, email, phone captured. Organisation in stages: Thames Valley Police -> station; 
+ 	* local authority -> authority name -> function; housing association -> association name.  
+    * Additional police stations, authority functions and housing associations may be added.
+*/
 
-
+function referrer_setup ($form, &$form_state) {
+  if (!isset($form['#parents'])) {
+    $form['#parents'] = array();
+  }
+  $referrer = user_load(19);
+  $language = $referrer->language;
+  
+  // First name
+  $instance = field_info_instance('user', 'field_first_name', 'user');
+  $field = field_info_field_by_id($instance['field_id']);
+  $items = field_get_items('user', $referrer, 'field_first_name');
+  $form_element = field_default_form('user', $referrer, $field, $instance,
+     $language, $items, $form, $form_state);
+  $form = array_merge($form, $form_element);
+	  
+  // Last name
+  $instance = field_info_instance('user', 'field_last_name', 'user');
+  $field = field_info_field_by_id($instance['field_id']);
+  $items = field_get_items('user', $referrer, 'field_last_name');
+  $form_element = field_default_form('user', $referrer, $field, $instance,
+     $language, $items, $form, $form_state);
+  $form = array_merge($form, $form_element);
+  
+  // Phone
+  $instance = field_info_instance('user', 'field_phone', 'user');
+  $field = field_info_field_by_id($instance['field_id']);
+  $items = field_get_items('user', $referrer, 'field_phone');
+  $form_element = field_default_form('user', $referrer, $field, $instance,
+     $language, $items, $form, $form_state);
+  $form = array_merge($form, $form_element);
+  
+  // Email
+  $instance = field_info_instance('user', 'field_email', 'user');
+  $field = field_info_field_by_id($instance['field_id']);
+  $items = field_get_items('user', $referrer, 'field_email');
+  $form_element = field_default_form('user', $referrer, $field, $instance,
+     $language, $items, $form, $form_state);
+  $form = array_merge($form, $form_element);
+  
+  return $form;
+}
