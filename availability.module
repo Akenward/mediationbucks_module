@@ -1189,37 +1189,11 @@ function referrer_setup ($form, &$form_state) {
      $language, $items, $form, $form_state);
   $form = array_merge($form, $form_element);
   
-  // Set up associative array $org_level_1 (second level of referrer organisation vocabulary)
-  // elements of the form tid => name
-  $org_vocab_object = taxonomy_vocabulary_machine_name_load('referring_organisations');
-  $org_vocab_0 = taxonomy_get_tree($org_vocab_object->vid, 0, $max_depth = 1, FALSE);
-  $parent_tid = $org_vocab_0[0]->tid;
-  $control_title =  taxonomy_term_load($org_vocab_0[0]->tid)->field_child_title['und'][0]['value'];
-  $org_names = org_names('referring_organisations', $parent_tid);
-  //$org_vocab_1 = taxonomy_get_tree($org_vocab_object->vid, $parent_tid, $max_depth = 1, FALSE);
-  //$org_headings = array();
-  //foreach ($org_vocab_1 as $term_object) {
-  	//$org_headings[$term_object -> tid] = $term_object -> name;
-  //}
+  // initialise the exit criterion for the form element do loop below
   $close_downstream = false;
   
-  // Level 1 select box
-  
-  $form['organisation_1'] = array(
-    '#type' => 'select',
-    '#title' => t($control_title),
-    '#required' => 'true',
-    '#empty_option' => '- select -',
-    '#multiple' => false,
-    '#options' => $org_names,
-    '#weight' => '17',
-    '#ajax' => array(
-      'callback' => 'cascade_callback',
-      'wrapper' => 'cascade-div',
-      'effect' => 'fade',
-    ),
-  );
-  
+  //Set up a container form element to provide an AJAX target that
+  //enables update of all levels of the taxonomy hierarchy
   $form['cascade'] = array(
     '#type' => 'container',
 	'#weight' => '18',
@@ -1227,103 +1201,90 @@ function referrer_setup ($form, &$form_state) {
     '#suffix' => '</div>',
   );
     
-  // Level 2 structure
-  // Initially a hidden control but can convert on AJAX call
-  // to a select box (if there is another level of choices)
-  // or a submit button if we've reached the bottom of the hierarchy.
-  	
-  if (isset($form_state['values']['organisation_1']) && $form_state['values']['organisation_1']!="" ) {
-  	$org_type_tid = $form_state['values']['organisation_1'];
-	$control_title =  taxonomy_term_load($org_type_tid)->field_child_title['und'][0]['value'];
-  	if (isset($control_title)&& $control_title != "") {
-  	  $org_names = org_names('referring_organisations', $org_type_tid);
-
-	  $form['cascade']['organisation_2'] = array(
-        '#type' => 'select',
-        '#title' => t($control_title),
-        '#required' => 'true',
-        '#empty_option' => '- select -',
-        '#multiple' => false,
-        '#options' => $org_names,
-        '#ajax' => array(
-          'callback' => 'cascade_callback',
-          'wrapper' => 'cascade-div',
-          'effect' => 'fade',
-        ),  
-      );
-	  if (in_array('organisation_1', $form_state['triggering_element']['#parents']) && isset($form_state['values']['organisation_2'])) {
-		$form_state['values']['organisation_2'] = "";
+  // Loop down the hierarchy until you get to a select box with no option 
+  // selected or a taxonomy term with no children (in which case activate
+  // the submit button)	
+  $i = 1;
+  do {
+    if ($i == 1 
+        || (isset($form_state['values']['organisation_' . ($i-1)]) 
+        && $form_state['values']['organisation_' . ($i-1)] != "")) {
+  	  if ($i < 2) {
+  	  	// initialise by finding the unique root term for the taxonomy 
+  	  	$org_vocab_object = taxonomy_vocabulary_machine_name_load('referring_organisations');
+        $org_vocab_0 = taxonomy_get_tree($org_vocab_object->vid, 0, $max_depth = 1, FALSE);
+        $org_type_tid = $org_vocab_0[0]->tid;
 	  }
+	  else {
+	  	// work from the taxonomy term selected at the previous level
+	  	$org_type_tid = $form_state['values']['organisation_' . ($i-1)];
+	  }
+	  $control_title =  taxonomy_term_load($org_type_tid)->field_child_title['und'][0]['value'];
+	  // If the previously selected taxonomy term has child terms, set up another control to select one
+	  if (isset($control_title)&& $control_title != "") {
+	  	$org_names = org_names('referring_organisations', $org_type_tid);
+		$form['cascade']['organisation_' . $i ] = array(
+          '#type' => 'select',
+          '#title' => t($control_title),
+          '#required' => 'true',
+          '#empty_option' => '- select -',
+          '#multiple' => false,
+          '#options' => $org_names,
+          // Ajax replaces the whole set of controls to handle re-setting of the option
+          // at a higher level - more than one control may need to disappear or be re-set
+          '#ajax' => array(
+            'callback' => 'cascade_callback',
+            'wrapper' => 'cascade-div',
+            'effect' => 'fade',
+          ),
+        );
+		// If the AJAX call was triggered at the next level up in the hierarchy, this control will
+		// be set to default to prompt the user to re-select.  In the meantime, though, form_state
+		// will remain unchanged and may retain the value for a previous choice.
+		// This would confuse logic in the next iteration unless form_state is re-set.
+	    if (isset($form_state['triggering_element']['#parents']) 
+	        && in_array('organisation_' . ($i-1), $form_state['triggering_element']['#parents']) 
+	        && isset($form_state['values']['organisation_' . $i])) {
+		  $form_state['values']['organisation_' . $i] = "";
+	    }
+      }
+      // If the previously selected taxonomy term has no children, then we're done and the user can
+      // have a commit button 
+      else {
+        $form['cascade']['button'] = array(
+	      '#type' => 'submit',
+	      '#value' => 'Continue',
+	    );
+		// Set up for exit from the loop
+	    $close_downstream = true;
+		
+      }
     }
     else {
-      $form['organisation_2'] = array(
-	    '#type' => 'submit',
-	    '#value' => 'Continue',
-	  );
-	  $close_downstream = true;
-    }
-  }
-  else {
-    $close_downstream = true;
-  }
-   
-  // Level 3 structure
-  // Initially a hidden control but can convert on AJAX call
-  // to a select box (if there is another level of choices)
-  // or a submit button if we've reached the bottom of the hierarchy.
-
-  if (isset($form_state['values']['organisation_2']) && $form_state['values']['organisation_2']!="" && !$close_downstream) {
-    $org_type_tid = $form_state['values']['organisation_2'];
-    $control_title =  taxonomy_term_load($org_type_tid)->field_child_title['und'][0]['value'];
-    if (isset($control_title) && $control_title != "") {
-      $org_names = org_names('referring_organisations', $org_type_tid);
-  
-      $form['cascade']['organisation_3'] = array(
-        '#type' => 'select',
-        '#title' => t($control_title),
-        '#required' => 'true',
-        '#empty_option' => '- select -',
-        '#multiple' => false,
-        '#options' => $org_names,
-        '#ajax' => array(
-          'callback' => 'cascade_callback',
-          'wrapper' => 'cascade-div',
-          'effect' => 'fade',
-        ),
-      );
-	  if (in_array('organisation_2', $form_state['triggering_element']['#parents']) && isset($form_state['values']['organisation_3'])) {
-		$form_state['values']['organisation_3'] = "";
-	  }
-	}
-    else {
-	  $form['cascade']['organisation_3'] = array(
-	    '#type' => 'submit',
-	    '#value' => 'Continue',
-	  );
+      // If an option has not been chosen at the next level up, it means than the user has reset their
+      // choice to the default value.  We don't need a control at this level until they've made a new
+      // selection at that level and we can exit the loop.
       $close_downstream = true;
-	}
-  }
-  else {
-  	$close_downstream = true;
-  }
- 
-  // Level 4 structure
-  // Initially a hidden control but will convert on AJAX call
-  // to a submit button if we've made a selection at level 3.
- 
-  if (isset($form_state['values']['organisation_3']) && $form_state['values']['organisation_3']!="" && !$close_downstream) {
-    $form['cascade']['organisation_4'] = array(
-	  '#type' => 'submit',
-	  '#value' => 'Continue',
-	);
-  }
+    }
+	++$i ;
+  } while (!$close_downstream);  	
+  
   return $form;
 }
 
+/***
+ * AJAX callback to update the full set of controls 
+ */
 function cascade_callback($form, $form_state) {
-  return $form['cascade'];
+  return $form['cascade'] ;
 }
 
+/**
+ * Helper function to generate the array of options corresponding to taxonomy child elements
+ * @taxonomy_name: the machine name of the taxonomy we're working with
+ * @type_tid: the parent taxonomy tid
+ *   
+ */
 function org_names ($taxonomy_name, $type_tid ) {
   $org_vocab_object = taxonomy_vocabulary_machine_name_load($taxonomy_name);
   $org_vocab = taxonomy_get_tree($org_vocab_object->vid, $type_tid, $max_depth = 1, FALSE);
