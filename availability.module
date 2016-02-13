@@ -145,8 +145,7 @@ function availability_menu(){
     'title' => 'Referrer details',
     'page callback' => 'drupal_get_form', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
     'page arguments' => array('referrer_setup'), //the name of the form here
-    'access arguments' => array('access content'),
-    //'access arguments' => array('record availability'),
+    'access callback' => TRUE,
   );
   
   return $items;
@@ -1154,40 +1153,59 @@ function referrer_setup ($form, &$form_state) {
   if (!isset($form['#parents'])) {
     $form['#parents'] = array();
   }
-  $referrer = user_load(19);
-  $language = $referrer->language;
   
   // First name
-  $instance = field_info_instance('user', 'field_first_name', 'user');
-  $field = field_info_field_by_id($instance['field_id']);
-  $items = field_get_items('user', $referrer, 'field_first_name');
-  $form_element = field_default_form('user', $referrer, $field, $instance,
-     $language, $items, $form, $form_state);
-  $form = array_merge($form, $form_element);
+  $form['first_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('First name'),
+    '#required' => TRUE,
+    '#weight' => '1',
+  );
 	  
   // Last name
-  $instance = field_info_instance('user', 'field_last_name', 'user');
-  $field = field_info_field_by_id($instance['field_id']);
-  $items = field_get_items('user', $referrer, 'field_last_name');
-  $form_element = field_default_form('user', $referrer, $field, $instance,
-     $language, $items, $form, $form_state);
-  $form = array_merge($form, $form_element);
+  $form['last_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Last name'),
+    '#required' => TRUE,
+    '#weight' => '2',
+  );
+  
+  // Contact number requirement
+  $form['contact_number'] = array(
+    '#markup' => t('<em>Provide at least one contact number below:</em><br/>'),
+    '#weight' => '3',
+  );
   
   // Phone
-  $instance = field_info_instance('user', 'field_phone', 'user');
-  $field = field_info_field_by_id($instance['field_id']);
-  $items = field_get_items('user', $referrer, 'field_phone');
-  $form_element = field_default_form('user', $referrer, $field, $instance,
-     $language, $items, $form, $form_state);
-  $form = array_merge($form, $form_element);
+  $form['phone'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Phone number'),
+    '#description' => 'Use prefix "Xt" to include an extension',
+    '#weight' => '6',
+  );
   
-  // Email
-  $instance = field_info_instance('user', 'field_email', 'user');
-  $field = field_info_field_by_id($instance['field_id']);
-  $items = field_get_items('user', $referrer, 'field_email');
-  $form_element = field_default_form('user', $referrer, $field, $instance,
-     $language, $items, $form, $form_state);
-  $form = array_merge($form, $form_element);
+  // Mobile
+  $form['mobile'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Mobile number'),
+    '#weight' => '7',
+  );
+  
+  // Email1
+  $form['email1'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Email address'),
+    '#required' => TRUE,
+    '#weight' => '8',
+  );
+  
+  // Email2
+  $form['email2'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Repeat your email address'),
+    '#required' => TRUE,
+    '#weight' => '11',
+  );
   
   // initialise the exit criterion for the form element do loop below
   $close_downstream = false;
@@ -1267,7 +1285,7 @@ function referrer_setup ($form, &$form_state) {
       $close_downstream = true;
     }
 	++$i ;
-  } while (!$close_downstream);  	
+  } while (!$close_downstream);
   
   return $form;
 }
@@ -1295,3 +1313,160 @@ function org_names ($taxonomy_name, $type_tid ) {
   return $org_names;
 }
 
+function referrer_setup_validate ($form, &$form_state){
+  //email addresses match
+  if ($form_state['values']['email1'] != $form_state['values']['email2'] ) {
+  	form_set_error('email2', t('Email addresses do not match'));
+  }
+  
+  //email has correct format
+  $regex = '/^(?!(?:(?:\x22?\x5C[\x00-\x7E]\x22?)|(?:\x22?[^\x5C\x22]\x22?)){255,})(?!(?:(?:\x22?\x5C[\x00-\x7E]\x22?)|(?:\x22?[^\x5C\x22]\x22?)){65,}@)(?:(?:[\x21\x23-\x27\x2A\x2B\x2D\x2F-\x39\x3D\x3F\x5E-\x7E]+)|(?:\x22(?:[\x01-\x08\x0B\x0C\x0E-\x1F\x21\x23-\x5B\x5D-\x7F]|(?:\x5C[\x00-\x7F]))*\x22))(?:\.(?:(?:[\x21\x23-\x27\x2A\x2B\x2D\x2F-\x39\x3D\x3F\x5E-\x7E]+)|(?:\x22(?:[\x01-\x08\x0B\x0C\x0E-\x1F\x21\x23-\x5B\x5D-\x7F]|(?:\x5C[\x00-\x7F]))*\x22)))*@(?:(?:(?!.*[^.]{64,})(?:(?:(?:xn--)?[a-z0-9]+(?:-[a-z0-9]+)*\.){1,126}){1,}(?:(?:[a-z][a-z0-9]*)|(?:(?:xn--)[a-z0-9]+))(?:-[a-z0-9]+)*)|(?:\[(?:(?:IPv6:(?:(?:[a-f0-9]{1,4}(?::[a-f0-9]{1,4}){7})|(?:(?!(?:.*[a-f0-9][:\]]){7,})(?:[a-f0-9]{1,4}(?::[a-f0-9]{1,4}){0,5})?::(?:[a-f0-9]{1,4}(?::[a-f0-9]{1,4}){0,5})?)))|(?:(?:IPv6:(?:(?:[a-f0-9]{1,4}(?::[a-f0-9]{1,4}){5}:)|(?:(?!(?:.*[a-f0-9]:){5,})(?:[a-f0-9]{1,4}(?::[a-f0-9]{1,4}){0,3})?::(?:[a-f0-9]{1,4}(?::[a-f0-9]{1,4}){0,3}:)?)))?(?:(?:25[0-5])|(?:2[0-4][0-9])|(?:1[0-9]{2})|(?:[1-9]?[0-9]))(?:\.(?:(?:25[0-5])|(?:2[0-4][0-9])|(?:1[0-9]{2})|(?:[1-9]?[0-9]))){3}))\]))$/iD';
+  $value = $form_state['values']['email1'];
+  if (!preg_match($regex, $value)) {
+    form_set_error('email1', t('Not a valid email address'));
+  }
+
+  //email is not a duplicate
+  if (user_load_by_mail($form_state['values']['email1'])) {
+  	form_set_error('email1', t('There is already a Mediation Bucks referrer with this email address'));
+  }
+  // First name format
+  $value = $form_state['values']['first_name'];
+  $regex = '/^[A-Za-z- ]+$/';
+  if (!preg_match($regex, $value)) {
+    form_set_error('first_name', t('Only letters, spaces and hyphens'));
+  }
+  
+  // Last name format
+  $value = $form_state['values']['last_name'];
+  $regex = '/^[A-Za-z- ]+$/';
+  if (!preg_match($regex, $value)) {
+    form_set_error('last_name', t('Only letters, spaces and hyphens'));
+  }
+ 
+  //At least one phone number
+  if ($form_state['values']['first_name'] == NULL && $form_state['values']['last_name'] == NULL) {
+  	form_set_error('last_name', t('Provide at least one contact number'));
+  }
+  
+  //Phone number has correct format
+  if ($form_state['values']['phone'] != NULL) {
+  	$pattern = array (
+  	'/ /',
+  	'/\(/',
+  	'/\)/',
+  	'/\+/',
+  	'/\-/',
+	);
+  	$value = preg_replace($pattern, '', $form_state['values']['phone']);
+    $regex = '/^((44)|0)[0-9]{8,10}((Xt|XT|xT|Xt)[0-9]{1,6})?$/';
+    if (!preg_match($regex, $value)) {
+      form_set_error('phone', t('Incorrect format for UK phone number'));
+    }
+  }
+  
+  //Mobile number has correct format
+  if ($form_state['values']['mobile'] != NULL) {
+  	$pattern = array (
+  	'/ /',
+  	'/\(/',
+  	'/\)/',
+  	'/\+/',
+  	'/\-/',
+	);
+  	$value = preg_replace($pattern, '', $form_state['values']['mobile']);
+    $regex = '/^(07[\d]{8,12}|447[\d]{7,11})$/';
+    if (!preg_match($regex, $value)) {
+      form_set_error('mobile', t('Incorrect format for UK mobile number'));
+    }
+  }
+  
+  
+}
+
+function referrer_setup_submit ($form, &$form_state){
+  $first_name = $form_state['values']['first_name'];
+  $last_name = $form_state['values']['last_name'];
+  $phone = $form_state['values']['phone'];
+  $mobile = $form_state['values']['mobile'];
+  $email = $form_state['values']['email1'];
+  
+  $org_vocab_object = taxonomy_vocabulary_machine_name_load('referring_organisations');
+  $org_vocab_0 = taxonomy_get_tree($org_vocab_object->vid, 0, $max_depth = 1, FALSE);
+  $term = $org_vocab_0[0]->tid;
+  $term_wrapper = entity_metadata_wrapper('taxonomy_term', $term);
+  $domain_regex_value = $term_wrapper -> field_valid_domain -> value(array('sanitize' => TRUE));
+  if (isset($domain_regex_value) && $domain_regex_value != '') {
+	$domain_regex = $domain_regex_value;
+  }
+  for ($i=1 ; $i<=3 ; ++$i) {
+  	if (isset($form_state['values']['organisation_' . $i])) {
+	  $organisation = $form_state['values']['organisation_' . $i];
+	  $term = taxonomy_term_load($organisation)->tid;
+      $term_wrapper = entity_metadata_wrapper('taxonomy_term', $term);
+	  $domain_regex_value = $term_wrapper -> field_valid_domain -> value(array('sanitize' => TRUE));
+	  if (isset($domain_regex_value) && $domain_regex_value != '') {
+	  	$domain_regex = $domain_regex_value;
+	  }
+    }
+  }
+    
+  $regex = array(
+   '/ /',
+   '/\-/',
+  );
+  $name = strtolower(preg_replace($regex, '', $first_name )) . '.' . strtolower(preg_replace($regex, '', $last_name ));
+  $referrer_role = user_role_load_by_name('referrer');
+  $referrer_rid = $referrer_role->rid;
+  
+  if (user_load_by_name($name)) {
+  	$i = 0;
+  	do {
+  	  ++$i;
+  	} while (user_load_by_name($name . $i));
+  }
+  $name = $name . $i;
+  
+  //This will generate a random password, you could set your own here
+  $password = user_password(8);
+  
+  $account_status = preg_match('/' . $domain_regex . '/', $email);
+  //set up the user fields
+  $fields = array(
+    'name' => $name,
+    'mail' => $email,
+    'pass' => $password,
+    'status' => $account_status,
+    'roles' => array(
+      DRUPAL_AUTHENTICATED_RID => 'authenticated user',
+      $referrer_rid => 'referrer',
+    ),
+  );
+ 
+  //the first parameter is left blank so a new user is created
+  $account = user_save('', $fields);
+ 
+  // If you want to send the welcome email, use the following code
+ 
+  // Manually set the password so it appears in the e-mail.
+  $account->password = $fields['pass'];
+  
+  $account_wrapper = entity_metadata_wrapper('user', $account);
+  $account_wrapper->field_phone->set($phone);
+  $account_wrapper->field_mobile->set($mobile);
+  $account_wrapper->field_first_name->set($first_name);
+  $account_wrapper->field_last_name->set($last_name);
+  $account_wrapper->field_organisation->set($organisation);
+  $account_wrapper->save();
+ 
+  $form_state['account_status'] = $account_status;
+ 
+  // Send the e-mail through the user module.
+  if ($account_status) {
+    drupal_mail('user', 'register_no_approval_required', $email, NULL, array('account' => $account), variable_get('site_mail'));
+    $form_state['redirect'] = 'content/registration-confirmed';
+  }
+  else {
+  	$form_state['redirect'] = 'content/registration-pending';
+  }
+}
