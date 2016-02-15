@@ -1,0 +1,131 @@
+<?php
+ 
+/**
+ * @file
+ * Availability schema
+ */
+ 
+/**
+ * Implements hook_schema() for availability table and availability entity type.
+ */
+function availability_schema() {
+  module_load_include('inc', 'availability', 'includes/availability');
+  $m_days = _set_up_days();
+  $m_times = _set_up_times();
+  
+  //  for availability table
+  $schema['availability'] = array ( 
+    'description' => 'The main store for availability data',
+    'title' => 'Mediator availability records',
+    'fields' => array(
+      'vid' => array(
+        'description' => 'Primary key for the table of availability records',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+       ),
+       'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => "The {users}.uid of the associated user.",
+      ),
+      'start_date' => array(
+        'description' => 'The datetime for the Monday starting the week',
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'notes' => array(
+        'description' => 'Notes to supplement pro-forma availability data',
+        'type' => 'text',
+        'size' => 'normal',
+        'not null' => FALSE,
+      ),
+    ),
+    //data will be retrieved principally by week and user
+	'indexes' => array(
+      'uid' => array('uid'),
+      'start_date' => array('start_date'),
+    ),
+    //  there's a link to the users table via user id
+    'foreign keys' => array(
+      'userid' => array(
+      'table' => 'users',
+      'columns' => array('uid' => 'uid'),
+      ),
+    ),
+    // there should only be one record for any combination of user and week
+    'unique keys' => array(
+	  'user_date' => array('uid', 'start_date'),
+	),
+    
+    'primary key' => array('vid'),
+  );
+  // field for each day of the week/period during the day
+  foreach ($m_days as $m_d => $m_day) {
+     foreach ($m_times as $m_t => $m_time) {
+     	$schema['availability']['fields'][$m_d.'_'.$m_t] = array(
+		  'description' => ('Availability for ' . $m_day . ' ' . $m_time),
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => FALSE,
+		);
+	 }
+  }
+  
+  $schema['updates'] = array ( 
+    'description' => 'Status of availability updates',
+    'title' => 'Status of mediator availabiity reporting',
+    'fields' => array(
+      'sid' => array(
+        'description' => 'Primary key for the table of availability records',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+       ),
+      'start_date' => array(
+        'description' => 'The datetime for the Monday starting the week',
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => "The {users}.uid of the associated user.",
+      ),
+      'mediator_name' => array(
+        'description' => 'Mediator name',
+        'type' => 'varchar',
+	    'length' => 255,
+      ),
+      'report_status' => array(
+        'description' => 'Mediator availability update status',
+        'type' => 'int',
+        'not null' => TRUE,
+      ),
+    ),
+    //data will be retrieved principally by week and user
+	'indexes' => array(
+      'mediator_name' => array('mediator_name'),
+      'start_date' => array('start_date'),
+    ),
+    // there should only be one record for any combination of mediator and week
+    'unique keys' => array(
+	  'mediator_date' => array('mediator_name', 'start_date'),
+	),
+    
+    'primary key' => array('sid'),
+  );
+  
+  return $schema;
+}
+
+
+
+  
+
+
+
+
+

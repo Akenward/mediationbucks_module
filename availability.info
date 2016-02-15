@@ -1,0 +1,18 @@
+name = Availability
+description = Enables users to create and update availability.
+
+stylesheets[all][] = availability.css
+
+files[] = includes/availability.inc
+files[] = includes/meetings.inc
+
+dependencies[] = entity
+dependencies[] = ctools
+dependencies[] = date
+dependencies[] = views
+dependencies[] = pathauto
+dependencies[] = token
+dependencies[] = case_management
+
+core = 7.x
+version = 7.x-0.1-dev
