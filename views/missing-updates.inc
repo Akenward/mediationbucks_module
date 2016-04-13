@@ -75,12 +75,13 @@ $handler->display->display_options['filters']['start_date']['expose']['remember_
 );
 
 /* Display: Page */
+
 $handler = $view->new_display('page', 'Page', 'page');
-$handler->display->display_options['path'] = 'missing-updates';
+$handler->display->display_options['path'] = 'availability-reports/missing-updates';
 $handler->display->display_options['menu']['type'] = 'normal';
 $handler->display->display_options['menu']['title'] = 'Missing updates';
 $handler->display->display_options['menu']['description'] = 'Mediators with missed updates';
-$handler->display->display_options['menu']['weight'] = '0';
+$handler->display->display_options['menu']['weight'] = '4';
 $handler->display->display_options['menu']['context'] = 0;
 $handler->display->display_options['menu']['context_only_inline'] = 0;
 $translatables['missing_updates'] = array(

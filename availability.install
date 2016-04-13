@@ -9,9 +9,7 @@
  * Implements hook_schema() for availability table and availability entity type.
  */
 function availability_schema() {
-  module_load_include('inc', 'availability', 'includes/availability');
-  $m_days = _set_up_days();
-  $m_times = _set_up_times();
+  $periods = availability_periods_factory();
   
   //  for availability table
   $schema['availability'] = array ( 
@@ -62,8 +60,8 @@ function availability_schema() {
     'primary key' => array('vid'),
   );
   // field for each day of the week/period during the day
-  foreach ($m_days as $m_d => $m_day) {
-     foreach ($m_times as $m_t => $m_time) {
+  foreach ($periods -> availabilityDays() as $m_d => $m_day) {
+     foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
      	$schema['availability']['fields'][$m_d.'_'.$m_t] = array(
 		  'description' => ('Availability for ' . $m_day . ' ' . $m_time),
           'type' => 'varchar',

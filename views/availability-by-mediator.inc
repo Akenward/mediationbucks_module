@@ -371,14 +371,16 @@ $handler->display->display_options['filters']['uid']['expose']['remember_roles']
 );
 
 /* Display: Page */
+
 $handler = $view->new_display('page', 'Page', 'page');
-$handler->display->display_options['path'] = 'availability-by-mediator';
+$handler->display->display_options['path'] = 'availability-reports/availability-by-mediator';
 $handler->display->display_options['menu']['type'] = 'normal';
 $handler->display->display_options['menu']['title'] = 'Availability by mediator';
 $handler->display->display_options['menu']['description'] = 'Table summarising mediator availability';
-$handler->display->display_options['menu']['weight'] = '0';
+$handler->display->display_options['menu']['weight'] = '2';
 $handler->display->display_options['menu']['context'] = 0;
 $handler->display->display_options['menu']['context_only_inline'] = 0;
+
 $translatables['availability_by_mediator'] = array(
   t('Master'),
   t('Mediator Availability'),

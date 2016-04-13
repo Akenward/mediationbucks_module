@@ -72,10 +72,6 @@ function availability_entity_info(){
   return $availability_info;
 }
 
-function availability_label_node($entity, $entity_type) {
-  return $entity->type;
-}
-
 /**
  * Class for availability entity.
  */
@@ -138,8 +134,63 @@ function availability_menu(){
     'page arguments' => array('availability_form'), //the name of the form here
     'access arguments' => array('record availability'),
   );
+
+  $items['availability-reports'] = array(
+    'title' => t('Availability reports'),
+    'description' => t('Control the data displayed'),
+    'page callback' => 'views_page', //this is the function that will be called when the page is accessed.  for a form, use drupal_get_form
+    'page arguments' => array('mediator_availability', 'page'), //the name of the form here
+    'access arguments' => array('view availability'),
+  );
   
   return $items;
+}
+
+/**
+ * Implements hook_menu_link_alter
+ */
+function availability_menu_link_alter(&$item) {
+  switch ($item['link_title']) {
+    case 'Mediator availability':
+	  $item['plid'] = current(_get_the_mlids('availability-reports'));
+	break;
+	case 'Availability by mediator':
+	  $item['plid'] = current(_get_the_mlids('availability-reports'));
+	break;
+	case 'Missing updates':
+	  $item['plid'] = current(_get_the_mlids('availability-reports'));
+	break;
+	case 'Updates provided':
+	  $item['plid'] = current(_get_the_mlids('availability-reports'));
+	break;
+	case 'Meeting':
+	  $item['type'] = MENU_SUGGESTED_ITEM;
+	break;
+	case 'Case list':
+	  $item['type'] = MENU_SUGGESTED_ITEM;
+	break;
+	
+  default:
+	break;
+  }
+}
+
+/**
+ * Helper function to get the mlid(s) pointing to a given path
+ * @path: the path
+ */
+function _get_the_mlids($path) {
+  $mlid = array();
+  $menu_info = db_select('menu_links' , 'ml')
+    ->condition('ml.link_path' , $path)
+    ->fields('ml', array('mlid', 'plid'))
+    ->execute()
+    ->fetchAll();
+
+  foreach($menu_info as $key => $value) {
+    $mlid[] = $menu_info[$key]->mlid;
+  }
+  return $mlid;
 }
  
 /**
@@ -175,8 +226,7 @@ function availability_form($form, &$form_state) {
   // set a variable for the current record index to null until a record is loaded
   $vid = NULL;
   
-  $m_days = _set_up_days();
-  $m_times = _set_up_times();
+  $periods = availability_periods_factory();
   
   // get current mediator from session variable or load from global 
   $mediator = availability_mediator();
@@ -275,7 +325,7 @@ function availability_form($form, &$form_state) {
   '#markup' => date_format_date(date_modify($other_days,"+1 days"), 'custom', $format) .'</div>',
   );
   $meeting_text = array();
-  foreach ($m_times as $m_t => $m_time) {
+  foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
   	// Set up a div container for each column of the grid (period during the day)
   	$form['c_'.$m_t] = array(
 	    '#type' => 'container',
@@ -297,7 +347,7 @@ function availability_form($form, &$form_state) {
 		  'class' => array('availability-head'),
 		),
 	);
-  	foreach ($m_days as $m_d => $m_day) {
+  	foreach ($periods -> availabilityDays() as $m_d => $m_day) {
   	// Set up a container for each cell of the grid within the correct column container 
   	  $mediator_list = $meetings->checkPeriod($_SESSION['start'], $m_d, $m_t, false);
 	  $meeting_class = 'hasnt-meeting';
@@ -456,8 +506,7 @@ function availability_form_validate($form, &$form_state) {
 function availability_form_submit($form, &$form_state) {
   module_load_include('inc', 'availability');
   module_load_include('module', 'entity');
-  $m_days = _set_up_days();
-  $m_times = _set_up_times();
+  $periods = availability_periods_factory();
   $report = array();
   
   $mediator = availability_mediator();
@@ -481,8 +530,8 @@ function availability_form_submit($form, &$form_state) {
       'notes' => t($form_state['values']['notes']),
     );
   
-    foreach ($m_times as $m_t => $m_time) {
-  	  foreach ($m_days as $m_d => $m_day) {
+    foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+  	  foreach ($periods -> availabilityDays() as $m_d => $m_day) {
   	    $values[$m_d.'_'.$m_t] = $form_state['values']['e_'.$m_t.'_'.$m_d];
       }
     }
@@ -618,10 +667,7 @@ function get_availability_record($mediator) {
   module_load_include('inc', 'availability', 'includes/availability');
   module_load_include('module', 'entity');
   $date_limits = availability_week_limits();
-  
-  $m_days = _set_up_days();
-  $m_times = _set_up_times();
-  
+  $periods = availability_periods_factory();
   $mediator = availability_mediator();  
   $userid = $mediator->uid;
   
@@ -663,8 +709,8 @@ function get_availability_record($mediator) {
 	
 	// load data from the record into an associative array, $return
 	$return = array('vid' => $vid, 'notes' => $notes, 'status' => 1);
-	foreach ($m_times as $m_t => $m_time) {
-	  foreach ($m_days as $m_d => $m_day) {
+	foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+	  foreach ($periods -> availabilityDays() as $m_d => $m_day) {
 	  	$return[$m_d.'_'.$m_t] = ($record->{$m_d.'_'.$m_t});
 	  }
 	}
@@ -673,8 +719,8 @@ function get_availability_record($mediator) {
   else {
   	$_SESSION['record_exists'] = FALSE;
   	$return = array('notes' => '', 'status' => 0);
-	foreach ($m_times as $m_t => $m_time) {
-	  foreach ($m_days as $m_d => $m_day) {
+	foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+	  foreach ($periods -> availabilityDays() as $m_d => $m_day) {
 	  	$return[$m_d.'_'.$m_t] = 1;
 	  }
 	}
@@ -710,8 +756,7 @@ function availability_block_view($delta = '') {
     $scripts = drupal_get_js();
     $vars['scripts'] = $scripts;
 	// Set up arrays for handling days of the week and periods of the day
-	$m_days = _set_up_days();
-    $m_times = _set_up_times();
+    $periods = availability_periods_factory();
 	$meetings = new MeetingCommitments();
     $block = array();
 	
@@ -750,8 +795,8 @@ function availability_block_view($delta = '') {
 		  if (in_array('mediator', $this_user[$record->uid]->roles)) {
 	        $link_array[$record->uid]['name'] = $this_user[$record->uid]->name;
 	        $link_array[$record->uid][$this_date]['notes'] = $record->notes;
-		    foreach ($m_times as $m_t => $m_time) {
-		  	  foreach ($m_days as $m_d => $m_day) {
+		    foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+		  	  foreach ($periods -> availabilityDays() as $m_d => $m_day) {
 		  	    $field_name = $m_d . '_' . $m_t;
 		  	    if ($record->$field_name != '0' ) {
 		  	  	  $link_array[$record->uid][$this_date]['available'][$field_name] = $record->$field_name;
@@ -765,8 +810,8 @@ function availability_block_view($delta = '') {
 	$date_limits = availability_week_limits();
 	$start_date = $date_limits['lower'];
 	while ($start_date <= $date_limits['upper']) {
-	  foreach ($m_times as $m_t => $m_time) {
-        foreach ($m_days as $m_d => $m_day) {
+	  foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+        foreach ($periods -> availabilityDays() as $m_d => $m_day) {
       	  $mediator_list = $meetings->checkPeriod($start_date, $m_d, $m_t, true);
 		  foreach ($mediator_list as $mediator_meeting) {
 		  	$mediator_uid = $mediator_meeting['uid'];
@@ -816,25 +861,6 @@ function availability_views_api() {
 }
 
 /**
- *  Implements hook_views_default_views to load views code held as .inc files in views sub-folder
- */
-function availability_views_default_views() {
-  // Check for all view files in views directory
-  $files = file_scan_directory(drupal_get_path('module', 'availability') . '/views', '/.*\.inc$/');
-
-  // Add each view to list of views
-  foreach ($files as $filepath => $file) {
-    require $filepath;
-    if (isset($view)) {
-      $views[$view->name] = $view;
-    }
-  }
-
-  // Return array of default views.
-  return $views;
-}
-
-/**
  *  Implements hook_cron to carry out scheduled tasks.  Specifically maintaining the table that tracks mediator
  *  updates and deleting availability records older than the "delete week" criterion.  Also sending out emails
  *  to all mediators prompting them to update their availability for the week after next if it's the designated
@@ -850,9 +876,8 @@ function availability_cron() {
   
   $now = new DateObject();
   
-  // set up arrays for weekday and period of day values 
-  $m_days = _set_up_days();
-  $m_times = _set_up_times();
+  // set up arrays for weekday and period of day values
+  $periods = availability_periods_factory();
   
   $disposal = array();
  
@@ -1069,17 +1094,16 @@ function setup_main_table_meetings() {
   $meetings_array = array();
   // set up the upper and lower limits for weeks displayed by Views
     
-  // set up arrays for weekday and period of day values 
-  $m_days = _set_up_days();
-  $m_times = _set_up_times();
+  // set up arrays for weekday and period of day values
+  $periods = availability_periods_factory();
   
   // Instantiate a MeetingCommitments object and use the checkPeriod method 
   // to return an array of periods in the Views table affected by a meeting
   $meetings = new MeetingCommitments();
   $monday = clone($date_limits['lower']);
   while ($monday <= $date_limits['upper']) {
-    foreach ($m_times as $m_t => $m_time) {
-      foreach ($m_days as $m_d => $m_day) {
+    foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+      foreach ($periods -> availabilityDays() as $m_d => $m_day) {
         $meetings_list = $meetings->checkPeriod($monday, $m_d, $m_t, false);
 		if (sizeof($meetings_list) > 0) {
 		  $meetings_array[] = array(
@@ -1092,15 +1116,15 @@ function setup_main_table_meetings() {
 	}
 	date_modify($monday, "+1 week");
   }
-return $meetings_array;
-
+  return $meetings_array;
+}
 
 /**
 	* Helper function to apply the rules for date ranges and limits in the configuration array to the current date
 	* @return: an array with four associative keys: lower, upper, default and delete.  The associated values are date objects  
 	* defining the corresponding week.
 	*/	 
-}
+	
 function availability_week_limits() {
   $availability_settings= variable_get("availability_settings", array());
   if (sizeof($availability_settings) < 1) {
@@ -1131,5 +1155,19 @@ function availability_week_limits() {
   	date_modify($date_limits['upper'], '+1 week');
   } while ($date_today->diff($date_limits['upper'])->format('%R%a') < $availability_settings['availability_end_limit']);
   return $date_limits;
+}
+
+/**
+* Functions for indirect instantiation of classes
+* @return: a new instance of the corresponding class  
+*/	 
+function availability_periods_factory() {
+  module_load_include('inc', 'availability', 'includes/availability.periods');
+  return new AvailabilityPeriods();
+}
+
+function meeting_commitments_factory() {
+  module_load_include('inc', 'availability', 'includes/availability.meetings');
+  return new MeetingCommitments();
 }
 

@@ -3,8 +3,8 @@ description = Enables users to create and update availability.
 
 stylesheets[all][] = availability.css
 
-files[] = includes/availability.inc
-files[] = includes/meetings.inc
+files[] = includes/availability.periods.inc
+files[] = includes/availability.meetings.inc
 
 dependencies[] = entity
 dependencies[] = ctools

@@ -75,12 +75,13 @@ $handler->display->display_options['filters']['start_date']['expose']['remember_
 );
 
 /* Display: Page */
+
 $handler = $view->new_display('page', 'Page', 'page');
-$handler->display->display_options['path'] = 'updates-provided';
+$handler->display->display_options['path'] = 'availability-reports/updates-provided';
 $handler->display->display_options['menu']['type'] = 'normal';
 $handler->display->display_options['menu']['title'] = 'Updates provided';
 $handler->display->display_options['menu']['description'] = 'Mediators who have updated their availability';
-$handler->display->display_options['menu']['weight'] = '0';
+$handler->display->display_options['menu']['weight'] = '6';
 $handler->display->display_options['menu']['context'] = 0;
 $handler->display->display_options['menu']['context_only_inline'] = 0;
 $translatables['updates_provided'] = array(
