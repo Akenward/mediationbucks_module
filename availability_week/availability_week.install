@@ -1,0 +1,28 @@
+<?php
+
+function availability_week_field_schema($field) {
+  switch ($field['type']) {
+  	case 'availability_week_data':
+      module_load_include('module', 'availability_week', 'availability_week');
+      $periods = availability_periods_factory();
+      $columns = array(
+	    'start_date' => array('type' => 'int', 'not null' => TRUE,
+		  'description' => 'The date of the start-date for this week'),
+	    'user_id' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,
+	      'description' => 'The uid for the user whose availability is recorded'),
+	    'notes' => array('type' => 'text', 'size' => 'normal', 'not null' => FALSE,
+	      'description' => 'Notes to supplement pro-forma availability data'),
+	  );
+      foreach ($periods -> availabilityDays() as $m_d => $m_day) {
+        foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+          $columns[$m_d.'_'.$m_t] = array('type' => 'varchar', 'length' => 3, 'not null' => FALSE);
+	    }
+      }
+      $indexes = array();
+      return array(
+        'columns' => $columns,
+        'indexes' => $indexes,
+      );
+	break;
+  }
+}

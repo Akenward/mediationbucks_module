@@ -16,7 +16,7 @@ function availability_entity_info(){
       'entity class' => 'AvailabilityClass',
       'controller class' => 'EntityAPIController',
       'base table' => 'availability',
-      'fieldable' => FALSE,
+      'fieldable' => TRUE,
       'entity keys' => array(
         'id' => 'vid',
       ),
@@ -108,6 +108,8 @@ class AvailabilityViewsController extends EntityDefaultViewsController {
     return $data;
   }
 }
+
+
 
 /**
  * Implements hook_menu().
@@ -325,6 +327,9 @@ function availability_form($form, &$form_state) {
   '#markup' => date_format_date(date_modify($other_days,"+1 days"), 'custom', $format) .'</div>',
   );
   $meeting_text = array();
+  
+    
+  
   foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
   	// Set up a div container for each column of the grid (period during the day)
   	$form['c_'.$m_t] = array(
@@ -1170,4 +1175,3 @@ function meeting_commitments_factory() {
   module_load_include('inc', 'availability', 'includes/availability.meetings');
   return new MeetingCommitments();
 }
-

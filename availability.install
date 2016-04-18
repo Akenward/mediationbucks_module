@@ -9,6 +9,7 @@
  * Implements hook_schema() for availability table and availability entity type.
  */
 function availability_schema() {
+  module_load_include('module', 'availability', 'availability');
   $periods = availability_periods_factory();
   
   //  for availability table
@@ -118,6 +119,42 @@ function availability_schema() {
   
   return $schema;
 }
+
+
+
+function availability_week_install (){
+  require_once DRUPAL_ROOT . '/sites/all/modules/availability/includes/fields.inc';
+  require_once DRUPAL_ROOT . '/sites/all/modules/availability/includes/instances.inc';
+  //module_load_include('inc', 'field', 'field.info');
+  cache_clear_all('field_info_types:', 'cache_field', TRUE);
+  	
+  // Create all the new fields required for the availability entity 
+  // using the helper function _availability_fields
+  foreach (_availability_fields() as $field) {
+    if (!field_info_field($field['field_name'])) {
+      field_create_field($field);
+	}
+  }
+ 
+  // Create all the new instances required for the availability entity 
+  foreach (_availability_instances() as $instance) {
+    if (!field_info_instance('availability', $instance['field_name'], $instance['bundle'])) {
+      field_create_instance($instance);
+	}
+  }
+}
+
+function availability_week_uninstall () {
+  require_once DRUPAL_ROOT . '/sites/all/modules/availability/includes/instances.inc';
+  // Remove all the new instances created for the availability entity 
+  foreach (_availability_instances() as $instance) {
+    if (field_info_instance('availability', $instance['field_name'], $instance['bundle'])) {
+      field_delete_instance($instance, TRUE);
+	}
+  }
+}
+	
+
 
 
 

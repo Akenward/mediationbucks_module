@@ -1,10 +1,10 @@
 name = Availability
 description = Enables users to create and update availability.
 
-stylesheets[all][] = availability.css
+stylesheets[all][] = availability_week.css
 
-files[] = availability_week/includes/availability.periods.inc
-files[] = availability_week/includes/availability.meetings.inc
+files[] = includes/availability.periods.inc
+files[] = includes/availability.meetings.inc
 
 dependencies[] = entity
 dependencies[] = ctools
@@ -13,7 +13,6 @@ dependencies[] = views
 dependencies[] = pathauto
 dependencies[] = token
 dependencies[] = case_management
-dependencies[] = availability_week
 
 core = 7.x
 version = 7.x-0.1-dev
