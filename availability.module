@@ -109,8 +109,6 @@ class AvailabilityViewsController extends EntityDefaultViewsController {
   }
 }
 
-
-
 /**
  * Implements hook_menu().
  */
@@ -216,226 +214,142 @@ function availability_permission(){
 /**
  * Implements hook_form().
  */
-function availability_form($form, &$form_state) {	
-  module_load_include('inc', 'availability', 'includes/availability');
-  module_load_include('module', 'entity');
-  module_load_include('inc', 'meetings');
-  $date_limits = availability_week_limits();
-  $availability_settings= variable_get("availability_settings", array());
+function availability_form($form, &$form_state) {
+  if (!isset($form_state['availability_context'])) {
+    $context = current_context_factory();
+    $form_state['availability_context'] = $context;
+  }
   
-  $meetings = new MeetingCommitments();
-  
-  // set a variable for the current record index to null until a record is loaded
-  $vid = NULL;
-  
-  $periods = availability_periods_factory();
-  
-  // get current mediator from session variable or load from global 
-  $mediator = availability_mediator();
-  $default_settings = get_availability_record($mediator);
+  //$settings = variable_get("availability_settings", array());
+  //$form['#availability_settings'] = $settings;
    
-  // auto-complete text box for office team to select a mediator
-  // to update records on his/her behalf.  Mediator saved in the session variable. 
- 
   if(user_access('view availability')) {
-  	$form['exit_protection_values'] = array(
-      '#type' => 'hidden',
-      '#attributes' => array(
-        'id' => 'exit_protection_values',
-	  ),
-      '#value' => $_SESSION['record_exists'] . ',' . $availability_settings['availability_exit_protection'],
-    );  
-    $form['mediator'] = array(
+	// auto-complete text box for office team to select a mediator
+    // to update records on his/her behalf.  Mediator saved in the session variable. 
+    $form['availability_data_wrapper']['mediator'] = array(
       '#type' => 'textfield',
       '#title' => t('Mediator'),
+      '#prefix' => '<div id="availability_data_wrapper">',
       '#size' => 30,
       '#maxlength' => 60,
       '#autocomplete_path' => 'user/autocomplete',
-      '#default_value' => $mediator->name,
-      '#weight' => -1,
+      '#default_value' => $form_state['availability_context']->availabilityCurrentMediator()->name,
+      '#weight' => '-4',
+      
     );
 	// Submit button (using default callback function hook_form_submit)
-    $form['select_mediator'] = array(
-       '#type' => 'submit',
-       '#value' => t('select mediator'),
-       '#executes_submit_callback' => TRUE,
-       '#submit' => array('select_mediator'),
+    $form['availability_data_wrapper']['select_mediator'] = array(
+      '#type' => 'submit',
+      '#value' => t('select mediator'),
+      '#executes_submit_callback' => TRUE,
+      '#validate' => array('validate_new_mediator'),
+      '#submit' => array('select_new_mediator'),
+      '#ajax' => array(
+        'callback' => 'refresh_availability_data',
+        'wrapper' => 'availability_data_wrapper',
+        'method' => 'replace',
+      ),
+      '#weight' => '-2',
     );
   }
-  if (is_object($mediator) && isset($_SESSION['start'])) {
-    $format = 'l jS F Y';
-    $date_confirm = 'Availability for ' . $mediator->name . ' week commencing ' . date_format_date($_SESSION['start'], 'custom', $format);
-  }
   
-  // Get the availability record for userid/start date 
- 
-  if ($default_settings['status'] == 1) {
-  	$vid = $default_settings['vid'];
-  }
-
-  $format = 'D jS';
-  $other_days = clone $_SESSION['start'];
-  // hidden field to hold the index of the current record
-  $form['vid'] = array(
-  '#type' => 'textfield',
-  '#value' => $vid,
-  '#access' => FALSE,
-  );
-
-  $form['week_commencing'] = array(
+  // Prepare and display the mediator and period information
+  $format = 'l jS F Y';
+  $date_confirm = 'Availability for ' . $form_state['availability_context']->availabilityCurrentMediator()->name . 
+    ' week commencing ' . date_format_date($form_state['availability_context']->availabilityCurrentMonday(), 'custom', $format);
+  
+  $form['availability_data_wrapper']['week_commencing'] = array(
+    //'#prefix' => '<div id="availability_data_wrapper">',
     '#markup' => '<h3>' . $date_confirm . '</h3>',
-  );
-  
-  // Some space to improve the layout
-  $form['space_1'] = array(
-   '#type' => 'markup',
-   '#markup' => '<div class="spacer"></div>',
+    '#weight' => '0',
   );
   
   // Button to move to the previous week, calling function 'week_back'
-   $form['earlier_monday'] = array(
-  '#type' => 'submit',
-  '#value' => t('previous week'),
-  '#prefix' => '<div class="date_shift">',
-  '#executes_submit_callback' => TRUE,
-  '#submit' => array('week_back'),
+  $form['availability_data_wrapper']['earlier_monday'] = array(
+    '#type' => 'submit',
+    '#value' => t('previous week'),
+    '#executes_submit_callback' => TRUE,
+    '#submit' => array('week_back'),
+    '#ajax' => array(
+      'callback' => 'refresh_availability_data',
+      'wrapper' => 'availability_data_wrapper',
+      'method' => 'replace',
+    ),
+    '#weight' => '2',
   );
   
   // Button to move to the next week, calling function 'week_forward
-  $form['later_monday'] = array(
-  '#type' => 'submit',
-  '#value' => t('next week'),
-  '#suffix' => '</div>',
-  '#executes_submit_callback' => TRUE,
-  '#submit' => array('week_forward'),
+  $form['availability_data_wrapper']['later_monday'] = array(
+    '#type' => 'submit',
+    '#value' => t('next week'),
+    '#executes_submit_callback' => TRUE,
+    '#submit' => array('week_forward'),
+    //'#suffix' => '</div>',
+    '#ajax' => array(
+      'callback' => 'refresh_availability_data',
+      'wrapper' => 'availability_data_wrapper',
+      'method' => 'replace',
+    ),
+    '#weight' => '4',
   );
   
-  // Row labels for the availability grid
-  $form['label_monday'] = array(
-  '#markup' => '<div class="row-labels"><br>'. date_format_date($other_days, 'custom', $format). '<br>',
-  );
-  $form['label_tuesday'] = array(
-  '#markup' => date_format_date(date_modify($other_days,"+1 days"), 'custom', $format). '<br>',
-  );
-  $form['label_wednesday'] = array(
-  '#markup' => date_format_date(date_modify($other_days,"+1 days"), 'custom', $format). '<br>',
-  );
-  $form['label_thursday'] = array(
-  '#markup' => date_format_date(date_modify($other_days,"+1 days"), 'custom', $format). '<br>',
-  );
-   $form['label_friday'] = array(
-  '#markup' => date_format_date(date_modify($other_days,"+1 days"), 'custom', $format) .'</div>',
-  );
-  $meeting_text = array();
-  
-    
-  
-  foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
-  	// Set up a div container for each column of the grid (period during the day)
-  	$form['c_'.$m_t] = array(
-	    '#type' => 'container',
-	    '#attributes' => array(
-		  'class' => array('availability-day'),
-		),
-	  );
-	// Set up a container for the column heading for each period during the day within the column container
-	$form['c_'.$m_t]['h_'.$m_t] = array(
-  	    '#type' => 'container',
-	    '#attributes' => array(
-		  'class' => array('availability-heading'),
-		)
-	  );
-	// Set up the column heading for each period within the column heading container
-	$form['c_'.$m_t]['h_'.$m_t]['m_'.$m_t] = array(
-	    '#markup' => ucwords($m_time),
-	    '#attributes' => array(
-		  'class' => array('availability-head'),
-		),
-	);
-  	foreach ($periods -> availabilityDays() as $m_d => $m_day) {
-  	// Set up a container for each cell of the grid within the correct column container 
-  	  $mediator_list = $meetings->checkPeriod($_SESSION['start'], $m_d, $m_t, false);
-	  $meeting_class = 'hasnt-meeting';
-	  for ($i_count = 0 ; $i_count < sizeof($mediator_list) ; $i_count ++) {
-	    if ($mediator_list[$i_count]['uid'] == $mediator->uid) {
-	      $meeting_class = 'has-meeting';
-		  $meeting_text[$mediator_list[$i_count]['title']] = date('d M Y', strtotime($mediator_list[$i_count]['date'])) . ' at ' . $mediator_list[$i_count]['time'];
-	    }
-      }
-	  
-  	  $form['c_'.$m_t]['c_'.$m_t.'_'.$m_d] = array(
-  	    '#type' => 'container',
-	    '#attributes' => array(
-		  'class' => array('availability-wrapper', $meeting_class),
-		)
-	  );
-	  // Set up the control for each availability field as a hidden input type, within the container for the cell
-	  $form['c_'.$m_t]['c_'.$m_t.'_'.$m_d]['e_'.$m_t.'_'.$m_d] = array(
-	    '#type' => 'hidden',
-	    '#default_value' => $default_settings[$m_d.'_'.$m_t],
-	    '#attributes' => array (
-		  'class' => array('availability-control'),
-		)
-	  );
-	}
+   //Get the availability record for userid/start date 
+  $storage = availability_storage_factory($form_state['availability_context']);
+  $entity = $storage->availabilityRetrieveEntity();
+  $items = $storage->availabilityRetrieveItems();
+
+  // Insert availability data grid and notes
+  if (!isset($form['#parents'])) {
+  	$form['#parents'] = array();
   }
-  if (sizeof($meeting_text) > 0) {
-  	$meeting_string = '<h3>' . t('Meeting information:') . '</h3>';
-  	foreach ($meeting_text as $title => $text) {
-  	  $meeting_string .= '<p>' . t($title) . ': ' . t($text) . '</p>';
-  	}
+  $instance = field_info_instance('availability', 'field_availability_week', 'availability');
+  $field = field_info_field_by_id($instance['field_id']);
+  $form_element = field_default_form('availability', $entity, $field, $instance, 'und', $items, $form, $form_state);
+  $form_element = array('availability_data_wrapper' => ($form_element + array('#suffix' => '</div>')));
+  $form = array_merge_recursive($form_element, $form);
+  
+  $meeting_commitments = new MeetingCommitments(
+    $form_state['availability_context']->availabilityCurrentMediator()->uid,
+    $form_state['availability_context']->availabilityCurrentMonday()->format('c'),
+    NULL
+  );
+  
+  $meeting_string = '';
+  if (strlen($meeting_commitments->listCommitments()) > 0) {
+    $meeting_string = '<h3>' . t('Meeting information:') . '</h3> ' .
+	  $meeting_commitments->listCommitments() ;
+  }
+  $lang = current($form['availability_data_wrapper']['field_availability_week']);
   	
-  	// Some space to improve the layout
-    $form['space_5'] = array(
-      '#type' => 'markup',
-      '#markup' => '<div class="spacer"></div>',
-    );
-  	$form['meeting'] = array(
-      '#title' => 'Meeting information',
-      '#type' => 'markup',
-      '#cols' => 40,
-      '#rows' => 2,
-      '#markup' => $meeting_string,
-    );
-  }
-  // Some space to improve the layout
-  $form['space_2'] = array(
-   '#type' => 'markup',
-   '#markup' => '<div class="spacer"></div>',
-  );
-    
-  // Textarea control for the availability notes
-   $form['notes'] = array(
-   '#title' => 'Notes',
-   '#type' => 'textarea',
-   '#cols' => 40,
-   '#default_value' => check_plain($default_settings['notes']),
-  );
-  // Some space to improve the layout
-  $form['space_3'] = array(
-   '#type' => 'markup',
-   '#markup' => '<div class="spacer"></div>',
-  );
+  $form['availability_data_wrapper']['field_availability_week']['und'][0]['meetings_container']['meetings_markup'] = array(
+    '#type' => 'markup',
+    '#markup' => $meeting_string,
+  ); 
+  $form['availability_data_wrapper']['#weight'] = '6';
+   
   // Checkbox control for repeating weeks
-   $form['repeat_wrapper'] = array(
+  $form['repeat_wrapper'] = array(
      '#type' => 'container',
 	 '#attributes' => array(
        'class' => array('repeat-group', 'text-vertical-1'),
 	 ),
+	 '#weight' => '12',
    );
+   
    $form['repeat_wrapper']['repeat_week'] = array(
      '#title' => 'Repeat for another ',
      '#type' => 'checkbox',
      '#default_value' => FALSE,
    );
-   // Checkbox control for repeating weeks
+   // Spinner control for repeating weeks
    $form['repeat_number_wrapper'] = array(
      '#type' => 'container',
 	 '#attributes' => array(
        'class' => array('repeat-group'),
 	 ),
+	 '#weight' => '14',
    );
-   // Spinner control for repeating weeks
+   
    $form['repeat_number_wrapper']['number_weeks'] = array(
    '#title' => '',
    '#type' => 'textfield',
@@ -458,23 +372,22 @@ function availability_form($form, &$form_state) {
 	 '#attributes' => array(
        'class' => array('repeat-group', 'text-vertical-2'),
 	 ),
+	 '#weight' => '16',
    );
    // Spinner control for repeating weeks
    $form['repeat_label_wrapper']['number_label'] = array(
      '#type' => 'markup',
      '#markup' => '<p> weeks </p>',
    );
-   // Some space to improve the layout
-   $form['space_4'] = array(
-     '#type' => 'markup',
-     '#markup' => '<div class="spacer"></div>',
-  );
+   
   // Submit button (using default callback function hook_form_submit)
   $form['submit_button'] = array(
     '#type' => 'submit',
     '#value' => t('Save the week'),
     '#prefix' => '<div class="availability-submit">',
+    '#weight' => '18',
   );
+  
   // Cancel button, calling function 'form_cancel')
   $form['cancel_button'] = array(
     '#type' => 'button',
@@ -482,9 +395,20 @@ function availability_form($form, &$form_state) {
     '#suffix' => '</div>',
     '#executes_submit_callback' => TRUE,
     '#submit' => array('form_cancel'),
+    '#weight' => '20',
   );
   return $form;
 }
+
+/**
+ * AJAX callback function to update availability data when
+ * a new mediator is selected
+ * 
+ */
+function refresh_availability_data($form, $form_state) {
+  return $form['availability_data_wrapper'];
+}
+
 /**
  * Implements hook_form_validate().
  */
@@ -580,26 +504,30 @@ function availability_form_submit($form, &$form_state) {
 }
 
 /**
- * Button handler to record mediator selection for update by
- * office team
+ * Validation handler for new mediator name
+ *
  */ 
-function select_mediator($form, &$form_state) {
-  if(user_access('view availability')) {
-	if (!user_load_by_name($form_state['values']['mediator']) || !is_object(user_load_by_name($form_state['values']['mediator']))) {
-	  form_set_error('mediator', 'enter a valid name');
-	}
-	else {
-	  if (!in_array('mediator', user_load_by_name($form_state['values']['mediator'])->roles)) {
-	    form_set_error('mediator', "this user is not a mediator");
-	  }
-	  else {
-	    $_SESSION['mediator'] = user_load_by_name($form_state['values']['mediator'])->name;
-	  }
+function validate_new_mediator($form, &$form_state){
+  if (!user_load_by_name($form_state['values']['mediator']) || !is_object(user_load_by_name($form_state['values']['mediator']))) {
+	form_set_error('mediator', 'enter a valid user name');
+  }
+  else {
+    if (!in_array('mediator', user_load_by_name($form_state['values']['mediator'])->roles)) {
+	  form_set_error('mediator', "this user is not a mediator");
 	}
   }
-  $form_state['rebuild'] = FALSE;
-  availability_cron();
-  return $form;
+}
+
+/**
+ * Submit handler for new mediator name
+ * 
+ */ 
+function select_new_mediator($form, &$form_state) {
+  $form_state['availability_context']->setCurrentMediator(user_load_by_name($form_state['values']['mediator']));
+  $form_state['rebuild'] = TRUE;
+  unset($form_state['input']['field_availability_week']);
+  //availability_cron();
+  //return $form;
 }
 
 
@@ -608,22 +536,9 @@ function select_mediator($form, &$form_state) {
  * provided we haven't gone further ahead than the upper limit
  */ 
 function week_forward($form, &$form_state) {
-  $date_limits = availability_week_limits();
-  if (isset($_SESSION['start'])) {
-  	$day = clone $_SESSION['start'];
-	if ($day < $date_limits['upper']) {
-	  $day = date_modify($day, '+1 week');
-	}
-	else{
-		drupal_set_message(t('This is as far ahead as we record'), 'status');
-	}
-    $_SESSION['start'] = $day;
-  }
-  else {
-  	$_SESSION['start'] = $date_limits['default'];
-  }
-  $form_state['rebuild'] = FALSE;
-  return $form;
+  $form_state['availability_context']->nextMonday();
+  $form_state['rebuild'] = TRUE;
+  unset($form_state['input']['field_availability_week']);
 }
 
 /**
@@ -631,22 +546,9 @@ function week_forward($form, &$form_state) {
  * provided we haven't gone further back than the lower limit
  */
 function week_back($form, &$form_state) {
-  $date_limits = availability_week_limits();
-  if (isset($_SESSION['start'])) {
-  	$day = clone $_SESSION['start'];
-	if ($day > $date_limits['lower']) {
-	  $day = date_modify($day, '-1 week');
-	}
-	else{
-		drupal_set_message(t('This is the earliest you can update'), 'status');
-	}
-	$_SESSION['start'] = $day;
-  }
-  else {
-  	$_SESSION['start'] = $date_limits['default'];
-  }
-  $form_state['rebuild'] = FALSE;
-  return $form;
+  $form_state['availability_context']->previousMonday();
+  $form_state['rebuild'] = TRUE;
+  unset($form_state['input']['field_availability_week']);
 }
 
 function form_cancel($form, &$form_state){
@@ -1162,16 +1064,44 @@ function availability_week_limits() {
   return $date_limits;
 }
 
+function _get_context(){
+  ctools_include('object-cache');
+  module_load_include('inc', 'availability', 'includes/availability.context');
+  if ($context = ctools_object_cache_get('availability_context', 'context_object')) {
+  	return $context;
+  }
+  else {
+	$context = new AvailabilityContext($GLOBALS['user']);
+	ctools_object_cache_set('availability_context', 'context_object', $context);
+  }
+  return $context;
+}
+
+function _set_context($context) {
+  ctools_include('object-cache');
+  ctools_object_cache_set('availability_context', 'context_object', $context);
+}
+
+function _clear_context() {
+  ctools_include('object-cache');
+  ctools_object_cache_clear('availability_context', 'context_object');
+}
+
 /**
 * Functions for indirect instantiation of classes
 * @return: a new instance of the corresponding class  
 */	 
-function availability_periods_factory() {
-  module_load_include('inc', 'availability', 'includes/availability.periods');
-  return new AvailabilityPeriods();
-}
 
 function meeting_commitments_factory() {
-  module_load_include('inc', 'availability', 'includes/availability.meetings');
-  return new MeetingCommitments();
+  $meetings = new MeetingCommitments;
+  return $meetings;
+}
+
+function current_context_factory() {
+  $context = new AvailabilityContext($GLOBALS['user']);
+  return $context;
+}
+
+function availability_storage_factory($context) {
+  return new AvailabilityStorage($context);
 }

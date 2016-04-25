@@ -4,7 +4,12 @@ description = Enables users to create and update availability.
 stylesheets[all][] = availability.css
 
 files[] = availability_week/includes/availability.periods.inc
-files[] = availability_week/includes/availability.meetings.inc
+files[] = includes/availability.meetings.inc
+files[] = includes/availability.context.inc
+files[] = includes/availability.storage.inc
+files[] = includes/fields.inc
+files[] = includes/instances.inc
+
 
 dependencies[] = entity
 dependencies[] = ctools

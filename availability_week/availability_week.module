@@ -1,9 +1,19 @@
 <?php
 
 /**
+ * @file
+ * A field to hold mediator availability data.
+ */
+
+
+/***************************************************************
+ * Field Type API hooks
+ ***************************************************************/
+
+/**
  * Implements hook_field_info().
  *
- * Provides the summary data for the availability_week field.
+ * Provides the description of the field.
  */
 function availability_week_field_info() {
   return array(
@@ -11,37 +21,64 @@ function availability_week_field_info() {
     'availability_week_data' => array(
       'label' => t('Mediator availability'),
       'description' => t('Holds a weeks mediator availability data.'),
-      'default_widget' => 'availability_week_table',
       'default_formatter' => 'availability_week_print',
+      'default_widget' => 'availability_week_table',
+      'property_type' => 'availability_week_data',
+      'property_callbacks' => array('availability_week_data_property_info_callback'),
     ),
   );
 }
 
+function availability_week_data_property_info_callback(&$info, $entity_type, $field, $instance, $field_type) {
+  $property = &$info[$entity_type]['bundles'][$instance['bundle']]['properties'][$field['field_name']];
+
+  $property['getter callback'] = 'entity_metadata_field_verbatim_get';
+  $property['setter callback'] = 'entity_metadata_field_verbatim_set';
+  unset($property['query callback']);
+  
+  $property['property info']['notes'] = array(
+    'type' => 'text',
+    'label' => t('Notes'),
+    'setter callback' => 'entity_property_verbatim_set',
+  );
+  $periods = availability_periods_factory();
+  foreach ($periods -> availabilityTimes() as $m_t => $t_time) {
+    foreach ($periods -> availabilityDays() as $m_d => $m_day) {
+      $property['property info'][$m_t.'_'.$m_d] = array(
+	    'type' => 'text',
+        'label' => t('@time @day', array(@time => $t_time, @day => $m_day)),
+        'setter callback' => 'entity_property_verbatim_set',
+      );
+	} 
+  }
+}
+
+
 /**
  * Implements hook_field_validate().
  *
- * Provides validation for input availability_week_data data
- *
- * @see field_example_field_widget_error()
  */
 function availability_week_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
-
+  
 }
+
 
 /**
  * Implements hook_field_is_empty().
  *
- * Determines whether the availability_week_data field is empty or not
  */
 function availability_week_field_is_empty($item, $field) {
   $field_empty = TRUE;
   $periods = availability_periods_factory();
-  foreach ($periods -> availabilityDays() as $m_d => $m_day) {
-    foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
-      if($item[$m_d.'_'.$m_t]) {
+  foreach ($periods -> availabilityTimes() as $m_t => $t_time) {
+    foreach ($periods -> availabilityDays() as $m_d => $m_day) {
+      if(!empty($item) && $item['week_table']['data_grid']['column_' . $m_t]['cell_'.$m_t.'_'.$m_d][$m_t.'_'.$m_d]) {
 	  	$field_empty = FALSE;
 	  }
-	}  
+	} 
+  }
+  if (!empty($item()) && $item != '') {
+  	$field_empty = FALSE;
   }
   return $field_empty;
 }
@@ -49,15 +86,13 @@ function availability_week_field_is_empty($item, $field) {
 /**
  * Implements hook_field_formatter_info().
  *
- * Tells Drupal about the formatter(s) for the availability_week_data field.
- *
- * @see field_example_field_formatter_view()
+ * @see availability_week_field_formatter_view()
  */
 function availability_week_field_formatter_info() {
   return array(
-    // This formatter prints the availability information as a table.
+    // This formatter just displays the hex value in the color indicated.
     'availability_week_print' => array(
-      'label' => t('Availability data for a week'),
+      'label' => t('Formatted table of availability data'),
       'field types' => array('availability_week_data'),
     ),
   );
@@ -66,100 +101,134 @@ function availability_week_field_formatter_info() {
 /**
  * Implements hook_field_formatter_view().
  *
- * Only one formatter is implemented:
- * - showing availability data in a grid with times of day as columns
- *   and days of the week as rows.
- *
+ * @see field_example_field_formatter_info()
  */
 function availability_week_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
-  $availability_user_name = user_load($item['uid']);
   $element = array();
+
   switch ($display['type']) {
-    // This formatter simply outputs the field as text and with a color.
+  	
     case 'availability_week_print':
-      foreach ($items as $delta => $item) {
-      	$availability_user_name = user_load($item['user_id']);
-		$availability_start_date = new DrupalDateTime($item['start_date']);
-        $element[$delta] = array(
-		  'user_name' => array(
-		    '#type' => 'html_tag',
-		    '#tag' => 'div',
-		    '#attributes' => array('class' => array('availability-user-name')),
-		    '#value' => $availability_user_name,
-		  ),
-		  'start_date' => array(
-		    '#type' => 'html_tag',
-		    '#tag' => 'div',
-		    '#attributes' => array('class' => array('availability-start-date')),
-		    '#value' => 'Week commencing ' . $availability_start_date->format('D dd/M/YY'),
-		  ),
-		  'week_table' => array(
+	  foreach ($items as $delta => $item) {
+        $element['#delta'] = $delta;
+        $periods = availability_periods_factory();
+        if (isset($item['notes'])){
+	      $notes = ($item['notes']);
+        }
+        else {
+  	      $notes = '';
+        }
+	    // Create a container for the whole view
+	    $element[$delta]['week_table'] = array(
+		  '#type' => 'container',
+		  '#attributes' => array('class' => array('availability-week-table')),
+		  // Within the overall contaner, create a column container for row captions
+		  'caption_column' => array(
 		    '#type' => 'container',
-		    '#attributes' => array('class' => array('availability-week-table')),
-		    'caption_column' => array(
+		    '#attributes' => array('class' => array('availability-week-caption-column')),
+		    // Within the caption column container, create a blank caption for the heading row
+		    'blank_caption' => array(
 		      '#type' => 'container',
-		      '#attributes' => array('class' => array('availability-week-caption-column')),
-		      'blank_caption' => array(
-		        '#type' => 'html_tag',
-		        '#tag' => 'div',
-		        '#attributes' => array('class' => array('availability-week-row-caption')),
-		        '#value' => '',
-		      ),
-		      'row_captions' => array(
-		        '#type' => 'container',
-		        '#attributes' => array('class' => array('availability-row-caption-container')),
-		      ),
-		      'main_table' => array(
-		        '#type' => 'container',
-		        '#class' => array('class' => array('availability-main-table')),
+		      '#attributes' => array('class' => array('availability-view-dummy-caption-container')),
+		      'row_caption_heading' => array(
+		        '#markup' => '<span> &nbsp </span>',
 		      ),
 		    ),
 		  ),
-		);
-		$periods = availability_periods_factory();
-		  foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
-		  	$element[$delta]['week_table']['main_table']['column_headings']['heading_' . m_t] = array(
-		  	  '#type' => 'html_tag',
-		      '#tag' => 'div',
-		      '#attributes' => array('class' => array('column-heading')),
-		      '#value' => $m_time,
-            $element[$delta]['week_table']['main_table']['availability-data-column-' . m_t] = array(
-			  '#type' => 'container',
-			  '#attributes' => array('class' => array('availability-week-column', 'column_' . m_t )),
-			);
-            foreach ($periods -> availabilityDays() as $m_d => $m_day) {
-            $element[$delta]['main_table']['main-column-' . m_t]['cell_'. m_d] = array(
-              '#type' => 'html_tag',
-              '#tag' => 'div',
-              '#value' => t('@val', array('@val' => $item[$m_d.'_'.$m_t])),
-            );
+		  //Create a container alongside the caption column to hold column headings and the data
+		  'data_grid' => array(
+		    '#type' => 'container',
+		    '#attributes' => array('class' => array('availability-week-data-grid')),
+		  ),
+	    );
+	    // For each day, set up the row caption in the option column
+	    foreach ($periods -> availabilityDays() as $m_d => $m_day) {
+		  $element[$delta]['week_table']['caption_column'][] = array(
+		    '#type' => 'container',
+		    '#attributes' => array('class' => array('availability-row-caption-container')),
+		    'row_caption_$m_d' => array(
+		      '#markup' => '<span>' . $m_day . '</span>',
+		    ),
+		  );
+	    }
+	    // For each time of day, set up a column container and put the column heading at the top
+	    $options = array(
+	      1 => '0',
+		  2 => '1',
+		  3 => '1.0',
+	    );
+	    foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+		  $element[$delta]['week_table']['data_grid']['column_' . $m_t] = array(
+		    '#type' => 'container',
+		    '#attributes' => array('class' => array('availability-grid-column-container')),
+		      'column_heading_' . $m_t => array(
+		        '#type' => 'container',
+		        '#attributes' => array('class' => array('availability-grid-column-heading')),
+			    'grid_box' => array(
+			      '#markup' => '<div class="grid-column-heading-element">'. $m_time .'</div>',
+			    ),
+		      ),
+		    );
+		    // For each day, within time of day, add the data cell containing data value to the time of day column    
+		    foreach ($periods -> availabilityDays() as $m_d => $m_day) {
+		      if (isset($item[$m_t .'_' . $m_d])){
+		  	    $value = $item[$m_t .'_' . $m_d];
+		      }
+		      else {
+			    $value = 2;
+		      }
+		      $element[$delta]['week_table']['data_grid']['column_' . $m_t]['cell_' . $m_t . '_' . $m_d] = array(
+		        '#type' => 'container',
+		        '#attributes' => array('class' => array('availability-data-cell')),
+		        $m_t . '_' . $m_d => array(
+			      '#markup' => $options[$value],
+			      '#attributes' => array('class' => array('availability-data-box')),
+			    ), 
+		      );
+		    }
 		  }
-		}
-      }
-      break;
-  }
+	      // Control for notes for the week
+	      $element[$delta]['notes_label'] = array(
+	        '#type' => 'container',
+		    '#attributes' => array('class' => array('label-container')),
+	        'notes_control_label' => array(
+		      '#attributes' => array('class' => array('availability-label')),
+		      '#markup' => 'Notes:',
+			),
+		  );
+	      $element[$delta]['notes'] = array(
+	        '#type' => 'container',
+		    '#attributes' => array('class' => array('availability-notes-container textarea-container')),
+		    'notes_control' => array(
+		      '#attributes' => array('class' => array('availability-notes')),
+		      '#markup' => $notes,
+		    ),
+	      );
+	      // Add css to format the table.
+          $element[$delta] += array(
+	        '#attached' => array(
+              'css' => array(drupal_get_path('module', 'availability_week') . 'availability.week.css'),
+	        ),
+	      );
+	      }
 
+    break;
+  }
   return $element;
 }
 
 /**
  * Implements hook_field_widget_info().
  *
- * Three widgets are provided.
- * - A simple text-only widget where the user enters the '#ffffff'.
- * - A 3-textfield widget that gathers the red, green, and blue values
- *   separately.
- * - A farbtastic colorpicker widget that chooses the value graphically.
- *
- * These widget types will eventually show up in hook_field_widget_form,
- * where we will have to flesh them out.
- *
- * @see field_example_field_widget_form()
  */
-function availability_field_widget_info() {
+function availability_week_field_widget_info() {
   return array(
     'availability_week_table' => array(
-      'label' => t('Tiled table'),
+      'label' => t('Grid of select controls'),
+      'field types' => array('availability_week_data'),
+    ),
+    'availability_week_tiles' => array(
+      'label' => t('Grid of clickable tiles'),
       'field types' => array('availability_week_data'),
     ),
   );
@@ -168,87 +237,172 @@ function availability_field_widget_info() {
 /**
  * Implements hook_field_widget_form().
  *
- * hook_widget_form() is where Drupal tells us to create form elements for
- * our field's widget.
- *
- * We provide one of three different forms, depending on the widget type of
- * the Form API item provided.
- *
- * The 'field_example_colorpicker' and 'field_example_text' are essentially
- * the same, but field_example_colorpicker adds a javascript colorpicker
- * helper.
- *
- * field_example_3text displays three text fields, one each for red, green,
- * and blue. However, the field type defines a single text column,
- * rgb, which needs an HTML color spec. Define an element validate
- * handler that converts our r, g, and b fields into a simulated single
- * 'rgb' form element.
  */
-function availability_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-
-  /*
-     // Add javascript to trigger the colorpicker.
-    $widget += array(
-      'js' => array(drupal_get_path('module', 'availability') . 'scripts/table_style.js'),
-    );
-    break;
-  */
-  
-  $widget = array();
-  $widget['#delta'] = $delta;
+function availability_week_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
   
   switch ($instance['widget']['type']) {
-  
+
     case 'availability_week_table':
-	  $periods = availability_periods_factory();
-        
 	  $widget = array();
-		foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
-		  // Set up a container for each column of the grid 
-		  $widget['c_'.$m_t] = array(
-	        '#type' => 'container',
-	        '#attributes' => array(
-		      'class' => array('availability-day'),
+      $widget['#delta'] = $delta;
+      $periods = availability_periods_factory();
+      if (isset($items[$delta]) && $items[$delta]['notes']){
+	    $default_notes = ($items[$delta]['notes']);
+      }
+      else {
+  	    $default_notes = '';
+      }
+	  // Create a container for the whole widget
+	  $widget['week_table'] = array(
+		'#type' => 'container',
+		'#attributes' => array('class' => array('availability-week-table')),
+		'#weight' => '0',
+		// Within the overall contaner, create a column container for row captions
+		'caption_column' => array(
+		  '#type' => 'container',
+		  '#attributes' => array('class' => array('availability-week-caption-column')),
+		  // Within the caption column container, create a blank caption for the heading row
+		  'blank_caption' => array(
+		    '#type' => 'container',
+		    '#attributes' => array('class' => array('availability-dummy-caption-container')),
+		    'row_caption_heading' => array(
+		      '#markup' => '<span> &nbsp </span>',
 		    ),
-	      );
-		  // Set up a container for the column heading for each period during the day within the column container
-	      $widget['c_'.$m_t]['h_'.$m_t] = array(
-  	        '#type' => 'container',
-	        '#attributes' => array(
-		      'class' => array('availability-heading'),
-		    )
-	      );
-		  
-          foreach ($periods -> availabilityDays() as $m_d => $m_day) {
-          	// Set up a container for each cell of the grid within the corresponding column 
-          	$meeting_class = 'hasnt-meeting';
-          	$widget['c_'.$m_t]['c_'.$m_t.'_'.$m_d] = array(
-  	          '#type' => 'container',
-	          '#attributes' => array(
-		        'class' => array('availability-wrapper', $meeting_class),
-		      ),
-	        );
-          	$value = isset($items[$delta][$m_d.'_'.$m_t]) ? $items[$delta][$m_d.'_'.$m_t] : '';
-			$widget['c_'.$m_t]['c_'.$m_t.'_'.$m_d]['e_'.$m_t.'_'.$m_d] = array(
-	          '#type' => 'textfield',
-	          '#size' => 5,
-	          //'#type' => 'hidden',
-	          '#default_value' => $value,
-	          '#attributes' => array (
-		        'class' => array('availability-control'),
-		      ),
-	        );
+		  ),
+		),
+		// Create a container alongside the caption column to hold column headings and the data
+		'data_grid' => array(
+		  '#type' => 'container',
+		  '#attributes' => array('class' => array('availability-week-data-grid')),
+		),
+	  );
+	  // For each day, set up the row caption in the option column
+	  foreach ($periods -> availabilityDays() as $m_d => $m_day) {
+		$widget['week_table']['caption_column'][] = array(
+		'#type' => 'container',
+		'#attributes' => array('class' => array('availability-row-caption-container')),
+		  'row_caption_$m_d' => array(
+		    '#markup' => '<span>' . $m_day . '</span>',
+		  ),
+		);
+	  }
+	  // For each time of day, set up a column container and put the column heading at the top
+	  foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+		$widget['week_table']['data_grid']['column_' . $m_t] = array(
+		'#type' => 'container',
+		'#attributes' => array('class' => array('availability-grid-column-container')),
+		  'column_heading_' . $m_t => array(
+		    '#type' => 'container',
+		    '#attributes' => array('class' => array('availability-grid-column-heading')),
+			'grid_box' => array(
+			  '#markup' => '<div class="grid-column-heading-element">'. $m_time .'</div>',
+			),
+		  ),
+		);
+		// For each day, within time of day, add the data cell containing data value to the time of day column    
+		foreach ($periods -> availabilityDays() as $m_d => $m_day) {
+		  if (isset($items[$delta]) && $items[$delta][$m_t .'_' . $m_d]){
+		  	$default_value = $items[$delta][$m_t .'_' . $m_d];
 		  }
+		  else {
+			$default_value = 1;
+		  }
+		  $widget['week_table']['data_grid']['column_' . $m_t]['cell_' . $m_t . '_' . $m_d] = array(
+		    '#type' => 'container',
+		    '#tree' => TRUE,
+		    '#attributes' => array('class' => array('availability-data-cell')),
+		    $m_t . '_' . $m_d => array(
+			  '#type' => 'select',
+			  '#options' => array(
+			    1 => '0',
+			    2 => '1',
+			    3 => '1.0',
+			  ),
+			  '#default_value' => $default_value,
+			  '#attributes' => array('class' => array('availability-data-box')),
+			), 
+		  );
 		}
-      // Add javascript to work the tile clicking.
+	  }
+
+      // Container for meeting info for the week
+	  $widget['meetings_container'] = array(
+		'#type' => 'container',
+		'#weight' => 2,
+		'#attributes' => array('class' => array('availability-meeting-container')),
+	  );
+	    
+	  // Control for notes for the week
+	  $widget['notes'] = array(
+		'#type' => 'container',
+		'#weight' => 4,
+		'#attributes' => array('class' => array('availability-notes-container textarea-container')),
+		'notes_control' => array(
+		  '#type' => 'textarea',
+		  '#title' => 'Notes',
+		  '#attributes' => array('class' => array('availability-notes')),
+		  '#default_value' => $default_notes,
+		),
+	  );
+	  // Add css to format the table.
       $widget += array(
 	    '#attached' => array(
-          'js' => array(drupal_get_path('module', 'availability') . '/scripts/my_availability.js'),
+          'css' => array(drupal_get_path('module', 'availability_week') . 'availability.week.css'),
 	    ),
-	  ); 
-      break;
-    }
-
+	  );
+    break;
+	  case 'availability_week_tiles':
+		
+	break;
+  }
   $element += $widget;
   return $element;
 }
+
+function availability_week_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  switch ($field['type']) {
+  	case 'availability_week_data':
+	  $periods = availability_periods_factory();
+	  foreach($items as $delta => $item) {
+	     // Copy the availability column key and value pairs to the top level of the $item array
+	     foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+		  foreach ($periods -> availabilityDays() as $m_d => $m_day) {
+		    if (isset($items[$delta]['week_table']['data_grid']['column_'.$m_t]['cell_'.$m_t .'_' . $m_d][$m_t .'_' . $m_d])){
+		  	  $items[$delta][$m_t .'_' . $m_d] = (string)$items[$delta]['week_table']['data_grid']['column_'.$m_t]['cell_'.$m_t .'_' . $m_d][$m_t .'_' . $m_d];
+		    }
+		    else {
+			  $items[$delta][$m_t .'_' . $m_d] = '1';
+		    }
+		  }
+	    }
+	  }
+	break;
+  }
+}
+
+/**
+ * Implements hook_field_widget_error().
+ *
+ * hook_field_widget_error() lets us figure out what to do with errors
+ * we might have generated in hook_field_validate(). Generally, we'll just
+ * call form_error().
+ *
+ * @see field_example_field_validate()
+ * @see form_error()
+ */
+function availability_week_field_widget_error($element, $error, $form, &$form_state) {
+  /*switch ($error['error']) {
+    case 'availability_week_invalid':
+      form_error($element, $error['message']);
+      break;
+  }*/
+}
+
+/**
+* Functions for indirect instantiation of classes
+* @return: a new instance of the corresponding class  
+*/	 
+function availability_periods_factory() {
+  return new AvailabilityPeriods();
+}
+

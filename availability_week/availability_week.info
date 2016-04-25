@@ -1,10 +1,12 @@
-name = Availability
-description = Enables users to create and update availability.
+name = Availability Week
+description = Provides a field for availability records.
 
 stylesheets[all][] = availability_week.css
 
 files[] = includes/availability.periods.inc
-files[] = includes/availability.meetings.inc
+files[] = includes/availability.storage.inc
+files[] = includes/availability.context.inc
+
 
 dependencies[] = entity
 dependencies[] = ctools
