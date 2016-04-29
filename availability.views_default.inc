@@ -23,6 +23,7 @@ function availability_views_default_views() {
  *  Implements hook_views_data_alter to set up entity relationships
  */  
 function availability_views_data_alter(&$data) {
+  dpm($data);
 
   // Join the availability table to the users table via the uid key	
   $data['users']['table']['join'] = array(

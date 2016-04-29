@@ -100,7 +100,7 @@ div.availability-submit {
     border-color: #bf7207;
 }
 
-.meeting-title {
+.ajax-message, .meeting-title {
 	color: #0779bf;
 }
 

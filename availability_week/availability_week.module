@@ -305,11 +305,11 @@ function availability_week_field_widget_form(&$form, &$form_state, $field, $inst
 		  	$default_value = $items[$delta][$m_t .'_' . $m_d];
 		  }
 		  else {
-			$default_value = 1;
+			$default_value = 2;
 		  }
 		  $widget['week_table']['data_grid']['column_' . $m_t]['cell_' . $m_t . '_' . $m_d] = array(
 		    '#type' => 'container',
-		    '#tree' => TRUE,
+		    //'#tree' => TRUE,
 		    '#attributes' => array('class' => array('availability-data-cell')),
 		    $m_t . '_' . $m_d => array(
 			  '#type' => 'select',
