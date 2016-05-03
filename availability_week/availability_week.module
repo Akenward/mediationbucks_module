@@ -95,6 +95,10 @@ function availability_week_field_formatter_info() {
       'label' => t('Formatted table of availability data'),
       'field types' => array('availability_week_data'),
     ),
+    'availability_week_row' => array(
+      'label' => t('Row of summary availability data for a week'),
+      'field types' => array('availability_week_data'),
+    ),
   );
 }
 
@@ -181,7 +185,7 @@ function availability_week_field_formatter_view($entity_type, $entity, $field, $
 		        '#type' => 'container',
 		        '#attributes' => array('class' => array('availability-data-cell')),
 		        $m_t . '_' . $m_d => array(
-			      '#markup' => $options[$value],
+			      '#markup' => $value,//$options[$value],
 			      '#attributes' => array('class' => array('availability-data-box')),
 			    ), 
 		      );
@@ -204,16 +208,42 @@ function availability_week_field_formatter_view($entity_type, $entity, $field, $
 		      '#markup' => $notes,
 		    ),
 	      );
-	      // Add css to format the table.
-          $element[$delta] += array(
-	        '#attached' => array(
-              'css' => array(drupal_get_path('module', 'availability_week') . 'availability.week.css'),
-	        ),
-	      );
-	      }
-
+	    }
+    break;
+	
+	case 'availability_week_row':
+	  foreach ($items as $delta => $item) {
+        $element['#delta'] = $delta;
+        $periods = availability_periods_factory();
+	    // Create a container for the whole view
+	    /*$element[$delta]['week_table'] = array(
+		  '#type' => 'container',
+		  '#attributes' => array('class' => array('availability-week-table')),
+	    );*/
+	    foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+		    // For each day, within time of day, add the data cell containing data value to the time of day column    
+		    foreach ($periods -> availabilityDays() as $m_d => $m_day) {
+		      if (isset($item[$m_t .'_' . $m_d])){
+		  	    $value = $item[$m_t .'_' . $m_d];
+		      }
+		      else {
+			    $value = 2;
+		      }
+		      $element[$delta]['cell_' . $m_t . '_' . $m_d] = array(
+		        '#type' => 'container',
+		        '#attributes' => array('class' => array('availability-row-cell')),
+		        $m_t . '_' . $m_d => array(
+		          '#type' => 'markup',
+			      '#markup' => $value,
+			      '#attributes' => array('class' => array('availability-row-box')),
+			    ), 
+		      );
+		    }
+		  }
+	    }
     break;
   }
+//dpm($element);
   return $element;
 }
 
@@ -345,13 +375,11 @@ function availability_week_field_widget_form(&$form, &$form_state, $field, $inst
 		),
 	  );
 	  // Add css to format the table.
-      $widget += array(
-	    '#attached' => array(
-          'css' => array(drupal_get_path('module', 'availability_week') . 'availability.week.css'),
-	    ),
+      $widget['#attached']['css'] = array(
+        drupal_get_path('module', 'availability_week') . '/availability_week.css',
 	  );
     break;
-	  case 'availability_week_tiles':
+	case 'availability_week_tiles':
 		
 	break;
   }
@@ -362,10 +390,11 @@ function availability_week_field_widget_form(&$form, &$form_state, $field, $inst
 function availability_week_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
   switch ($field['type']) {
   	case 'availability_week_data':
+	  //dpm($items);
 	  $periods = availability_periods_factory();
 	  foreach($items as $delta => $item) {
-	     // Copy the availability column key and value pairs to the top level of the $item array
-	     foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
+	    // Copy the availability column key and value pairs to the top level of the $item array
+	    foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
 		  foreach ($periods -> availabilityDays() as $m_d => $m_day) {
 		    if (isset($items[$delta]['week_table']['data_grid']['column_'.$m_t]['cell_'.$m_t .'_' . $m_d][$m_t .'_' . $m_d])){
 		  	  $items[$delta][$m_t .'_' . $m_d] = (string)$items[$delta]['week_table']['data_grid']['column_'.$m_t]['cell_'.$m_t .'_' . $m_d][$m_t .'_' . $m_d];
@@ -377,6 +406,7 @@ function availability_week_field_presave($entity_type, $entity, $field, $instanc
 	    }
 	  }
 	break;
+	default :
   }
 }
 

@@ -57,10 +57,14 @@
 	width: 80px;
 }
 
-.availability-data-cell, .availability-grid-column-heading {
+.availability-data-cell {
 	height: 50px;
-	width: 80px;
-	
+	width: 100px;	
+}
+
+.availability-grid-column-heading {
+	height: 50px;
+	width: 100px;	
 }
 
 .grid-column-heading-element {
@@ -70,4 +74,27 @@
 .availability-data-box {
 	width: 80px;
 }
+
+.availability-row-cell  {
+	height: 25px;
+	width: 35px;
+	display: inline-block;
+	float: left;
+}
+
+.availability-row-title {
+	height: 75px;
+	width: 35px;
+	display: inline-block;
+	float: left;
+}
+
+.availability-row-box {
+	width: 30px;
+}
+
+.availability-data-row {
+	clear: left;
+}
+
     

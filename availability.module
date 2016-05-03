@@ -3,6 +3,8 @@
  * @file
  * Sets up and handles changes to the availability form.
  */
+ 
+ module_load_include('module', 'availability_week');
   
   /**
  * Implements hook_entity_info().
@@ -106,9 +108,112 @@ class AvailabilityViewsController extends EntityDefaultViewsController {
     $data = parent::views_data();
     $data['availability']['start_date']['field']['handler'] = 'views_handler_field_date';
 	$data['updates']['start_date']['field']['handler'] = 'views_handler_field_date';
-	//$data['availability']['field_availability_week']['field']['handler'] = 'views_handler_field_field';
+	$data['availability']['field_availability_week']['field']['handler'] = 'views_handler_field_field';
     return $data;
   }
+}
+
+/**
+ *  Implements hook_views_api to make Views api functions available
+ */
+function availability_views_api() {
+  return array ('api' => 3);
+}
+
+function availability_views_post_render(&$view, &$output, &$cache){
+  if ($view->name == 'availability_test') {
+  	$periods = availability_periods_factory();
+	$context = current_context_factory();
+	$markup = '';
+	$week = NULL;
+  	$aggregate = array();
+	foreach ($view->result as $seq => $record) {
+	  $week = $record->availability_start_date;
+	  if ($context->inRange($week)){
+	    $week_string = $view->style_plugin->row_tokens[$seq]['[start_date]'];
+	    $aggregate[$week]['week_string'] = $week_string;
+	    foreach ($periods->availabilityDays() as $m_d => $m_days) {
+	      foreach ($periods->availabilityTimes() as $m_t => $m_times) {
+	        foreach ($record->field_field_availability_week as $delta => $week_part)
+	  	    if ($week_part['raw'][$m_t.'_'.$m_d] > 1) {
+	  	  	  if (isset($aggregate[$week][$m_t.'_'.$m_d])){
+	  	  	    $aggregate[$week][$m_t.'_'.$m_d] ++;
+	  	  	  }
+              else {
+	            $aggregate[$week][$m_t.'_'.$m_d] = 1;
+              }
+	  	    }
+	  	  }
+	    }
+	  }
+	}
+	$markup .= '<div class="view-content">';
+    foreach($aggregate as $week => $row_data) {
+      $markup .= '<table class="views-table cols-15"><caption>' . $aggregate[$week]['week_string'] . '</caption><thead><tr>';
+	  foreach ($periods->availabilityDays() as $m_d => $m_days) {
+	    foreach ($periods->availabilityTimes() as $m_t => $m_times) {
+	      $short_time = $periods->availabilityTimes('lo')[$m_t];
+		  $short_day = $periods->availabilityDays('lo')[$m_d];
+		  $day_number = $periods->availabilityDateCalc($week, $m_d);
+	      $markup .= '<th class="views-field views-field-'. $m_d . '-' . $m_t . '" scope="col">' . $short_day . '<br/> ' . $day_number . '<br/>' . $short_time .  '</th>';
+		}
+	  }
+	  $markup .= '</tr></thead><tbody><tr>';
+      foreach ($periods->availabilityDays() as $m_d => $m_days) {
+	    foreach ($periods->availabilityTimes() as $m_t => $m_times) {
+	      $markup .= '<td class="views-field views-field-'. $m_d . '-' . $m_t . '">' . $aggregate[$week][$m_t.'_'.$m_d] . '</td>';
+		}
+	  }
+	  $markup .= '</tr></tbody></table>';   
+    }
+	$markup .= '</div>';
+	$output = $markup;
+  }	
+}
+
+/**
+ * Implements hook_views_aggregation_functions_info.
+ *
+ * @return array
+ *   aggregation display names indexed by associated function name.
+ */
+function availability_views_aggregation_functions_info() {
+  $functions = array(
+    'availability_week_summary' => array(
+      'group' => t('Week summary'),
+      'column' => NULL, // use NULL if not applicable
+
+      // If your function operates on a numeric field, but the result is no
+      // longer a (single) number, for example when enumerating values, then the
+      // original renderer is not appropriate. In that case set this to FALSE.
+      'is_renderable' => TRUE, // this is the default
+    ),
+  );
+  return $functions;
+}
+
+function availability_week_summary($groups, $field_handler) {
+  
+  $values = array();
+  $periods = availability_periods_factory();
+  foreach ($groups as $group => $rows){
+  	$values[$group]['notes'] = '';
+  	foreach ($periods->availabilityTimes() as $m_t => $m_time) {
+  	  foreach ($periods->availabilityDays() as $m_d => $m_day) {
+  	  	$values[$group][$m_t.'_'.$m_d] = 0;
+  	  }
+  	}
+	foreach ($rows as $num => $row) {
+	  foreach ($periods->availabilityTimes() as $m_t => $m_time) {
+  	    foreach ($periods->availabilityDays() as $m_d => $m_day) {
+		  if ($row->field_field_availability_week[0]['raw'][$m_t.'_'.$m_d] > 1) {
+		  	$values[$group][$m_t.'_'.$m_d] ++ ;
+		  }
+  	    }
+  	  }
+	}
+  }
+  return $values;
 }
 
 /**
@@ -249,13 +354,12 @@ function availability_form($form, &$form_state) {
     $form['mediator'] = array(
       '#type' => 'textfield',
       '#title' => t('Mediator'),
-      '#prefix' => '<div id="availability_data_wrapper">',
+      //'#prefix' => '<div id="availability_data_wrapper">',
       '#size' => 30,
       '#maxlength' => 60,
       '#autocomplete_path' => 'user/autocomplete',
       '#default_value' => $form_state['availability_context']->availabilityCurrentMediator()->name,
       '#weight' => '0',
-      
     );
 	// Submit button (using default callback function hook_form_submit)
     $form['select_mediator'] = array(
@@ -269,7 +373,7 @@ function availability_form($form, &$form_state) {
   }
   
   // Prepare and display the mediator and period information
-  $format = 'l jS F Y';
+  /*$format = 'l jS F Y';
   $date_confirm = 'Availability for ' . $form_state['availability_context']->availabilityCurrentMediator()->name . 
     ' week commencing ' . date_format_date($form_state['availability_context']->availabilityCurrentMonday(), 'custom', $format);
   
@@ -397,7 +501,7 @@ function availability_form($form, &$form_state) {
     '#suffix' => '</div>',
     '#submit' => array('form_cancel'),
     '#weight' => '20',
-  );
+  );*/
   return $form;
 }
 
@@ -427,6 +531,7 @@ function availability_form_submit($form, &$form_state) {
   else {
   	// Request to save availability pattern just for the current week
     $report = $storage->availabilitySave($form, $form_state);
+	$repeat_weeks = 0;
   }
   
   if (count($report) == $repeat_weeks + 1 ) {
@@ -512,6 +617,8 @@ function form_cancel($form, &$form_state){
 	$form_state['rebuild'] = FALSE;
 	$form_state['redirect'] = 'node';
 }
+
+
 
 /**
  * Implements hook_block_info to introduce the block 
@@ -636,13 +743,6 @@ function availability_theme() {
       'variables' => array('subject' => NULL),
     ),
   );
-}
-
-/**
- *  Implements hook_views_api to make Views api functions available
- */
-function availability_views_api() {
-  return array ('api' => 3.0);
 }
 
 /**
@@ -902,7 +1002,7 @@ function setup_main_table_meetings() {
  *   setup_main_table_meetings
  */	 
 	
-function availability_week_limits() {
+/*function availability_week_limits() {
   $availability_settings= variable_get("availability_settings", array());
   if (sizeof($availability_settings) < 1) {
   	$availability_settings = array (
@@ -932,7 +1032,7 @@ function availability_week_limits() {
   	date_modify($date_limits['upper'], '+1 week');
   } while ($date_today->diff($date_limits['upper'])->format('%R%a') < $availability_settings['availability_end_limit']);
   return $date_limits;
-}
+}*/
 
 /**
 * Functions for indirect instantiation of classes

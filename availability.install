@@ -134,8 +134,8 @@ function availability_install(){
 }
 
 function availability_uninstall(){
-  // Delete all the new instances added the user entity and referring organisation taxonomy vocabulary 
-  // using the helper function _referral_other_instances
+  // Delete all the new instances added to the user entity and referring organisation taxonomy vocabulary 
+  // using the helper function _availability_instances
   module_load_include('inc', 'availability', 'includes/instances');
   foreach (_availability_instances() as $instance) {
     if (field_info_instance('node', $instance['field_name'], $instance['bundle'])) {
@@ -144,7 +144,7 @@ function availability_uninstall(){
   }
   
   // Delete all the new fields added to the user entity and referring organisation taxonomy vocabulary 
-  // using the helper function _referral_other_fields
+  // using the helper function _availability_fields
   module_load_include('inc', 'availability', 'includes/fields');
   foreach (_availability_fields() as $field) {
     if (field_info_field($field['field_name'])) {
