@@ -120,7 +120,7 @@ function availability_views_api() {
   return array ('api' => 3);
 }
 
-function availability_views_post_render(&$view, &$output, &$cache){
+/*function availability_views_post_render(&$view, &$output, &$cache){
   if ($view->name == 'availability_test') {
   	$periods = availability_periods_factory();
 	$context = current_context_factory();
@@ -169,7 +169,7 @@ function availability_views_post_render(&$view, &$output, &$cache){
 	$markup .= '</div>';
 	$output = $markup;
   }	
-}
+}*/
 
 /**
  * Implements hook_views_aggregation_functions_info.
@@ -177,7 +177,7 @@ function availability_views_post_render(&$view, &$output, &$cache){
  * @return array
  *   aggregation display names indexed by associated function name.
  */
-function availability_views_aggregation_functions_info() {
+/*function availability_views_aggregation_functions_info() {
   $functions = array(
     'availability_week_summary' => array(
       'group' => t('Week summary'),
@@ -214,7 +214,7 @@ function availability_week_summary($groups, $field_handler) {
 	}
   }
   return $values;
-}
+}*/
 
 /**
  * Implements hook_menu().
@@ -258,7 +258,7 @@ function availability_menu(){
 /**
  * Implements hook_menu_link_alter
  */
-function availability_menu_link_alter(&$item) {
+/*function availability_menu_link_alter(&$item) {
   switch ($item['link_title']) {
     case 'Mediator availability':
 	  $item['plid'] = current(_get_the_mlids('availability-reports'));
@@ -282,7 +282,7 @@ function availability_menu_link_alter(&$item) {
   default:
 	break;
   }
-}
+}*/
 
 /**
  * Helper function to get the mlid(s) pointing to a given path
@@ -346,6 +346,7 @@ function availability_form($form, &$form_state) {
   // to load or save.
   $storage = availability_storage_factory($form_state['availability_context']);
   $entity = $storage->availabilityRetrieveEntity();
+  $form_state['availability_current_entity'] = $entity;
   $items = field_get_items('availability', $entity, 'field_availability_week');
      
   if(user_access('view availability')) {
@@ -373,7 +374,7 @@ function availability_form($form, &$form_state) {
   }
   
   // Prepare and display the mediator and period information
-  /*$format = 'l jS F Y';
+  $format = 'l jS F Y';
   $date_confirm = 'Availability for ' . $form_state['availability_context']->availabilityCurrentMediator()->name . 
     ' week commencing ' . date_format_date($form_state['availability_context']->availabilityCurrentMonday(), 'custom', $format);
   
@@ -415,23 +416,22 @@ function availability_form($form, &$form_state) {
   // to retrieve the meetings scheduled for the current mediator during the current week.
   $meeting_commitments = new MeetingCommitments(
     $form_state['availability_context']->availabilityCurrentMediator()->uid,
-    $form_state['availability_context']->availabilityCurrentMonday()->format('c'),
+    $form_state['availability_context']->availabilityCurrentMonday()->format('U'),
     NULL
   );
-  
+  $meeting_list = $meeting_commitments->listCommitments();
   $meeting_string = '';
-  if (strlen($meeting_commitments->listCommitments()) > 0) {
+  if (strlen($meeting_list) > 0) {
     $meeting_string = '<h3>' . t('Meeting information:') . '</h3> ' .
-	  $meeting_commitments->listCommitments() ;
+	  $meeting_list ;
   }
-  $lang = current($form['field_availability_week']);
   
   // The meeting information is placed as a markup element in a container created as part of the
   // field_availability_week widget	
   $form['field_availability_week']['und'][0]['meetings_container']['meetings_markup'] = array(
     '#type' => 'markup',
     '#markup' => $meeting_string,
-  ); 
+  );
    
   // Checkbox control for repeating weeks
   $form['repeat_wrapper'] = array(
@@ -476,7 +476,6 @@ function availability_form($form, &$form_state) {
    $form['repeat_label_wrapper'] = array(
      '#type' => 'container',
      '#weight' => '16',
-     '#suffix' => '</div>',
 	 '#attributes' => array(
        'class' => array('repeat-group', 'text-vertical-2'),
 	 ),
@@ -501,7 +500,7 @@ function availability_form($form, &$form_state) {
     '#suffix' => '</div>',
     '#submit' => array('form_cancel'),
     '#weight' => '20',
-  );*/
+  );
   return $form;
 }
 
@@ -516,25 +515,27 @@ function availability_form_validate($form, &$form_state) {
  * Implements hook_form_submit().
  */
 function availability_form_submit($form, &$form_state) {
-  $availability = $form_state['values']['field_availability_week'];
-  $monday = $form_state['availability_context']->availabilityCurrentMonday();
+  //$availability = $form_state['values']['field_availability_week'];
+  //$monday = $form_state['availability_context']->availabilityCurrentMonday();
   // Instantiate a storage object with the current context object 
   $storage = availability_storage_factory($form_state['availability_context']);
-  if ($form_state['values']['repeat_week'] 
+    if ($form_state['values']['repeat_week'] 
     && isset($form_state['values']['number_weeks']) 
     && $form_state['values']['number_weeks'] > 0) {
   	// Request to save same availability pattern for the current week plus
   	// additional weeks
   	$repeat_weeks = $form_state['values']['number_weeks'];
-	$report = $storage->availabilitySave($form, $form_state, $repeat_weeks);
+	$report = $storage->availabilitySaveEntity($form, $form_state, $repeat_weeks);
   }
   else {
   	// Request to save availability pattern just for the current week
-    $report = $storage->availabilitySave($form, $form_state);
-	$repeat_weeks = 0;
+  	$repeat_weeks = 0;
+    $report = $storage->availabilitySaveEntity($form, $form_state);
   }
   
-  if (count($report) == $repeat_weeks + 1 ) {
+  dpm($report);
+  $monday = $form_state['availability_context']->availabilityCurrentMonday();
+  if (count(array_filter($report)) == $repeat_weeks + 1 ) {
   	// If all requested weeks saved successfully, confirm to user.
   	$msg = 'Thank you. ' . count($report) . ((count($report)>1)?' weeks':' week') .
   	  ' successfully saved commencing ' . $monday->format('l jS F');
@@ -543,7 +544,7 @@ function availability_form_submit($form, &$form_state) {
   else {
   	// If any failed give the user a report
   	$msg = t('We had a problem saving your record(s). ' .  count($report).
-  	 ((count($report)>1)?' weeks':' week') . 'were saved out of ' . $repeat_weeks + 1 . 
+  	 ((count(array_filter($report))>1)?' weeks':' week') . 'were saved out of ' . $repeat_weeks + 1 . 
   	 ' requested commencing ' . $monday->format('l jS F'). '.  Please contact the office.');
   	drupal_set_message($msg , $type = 'error');
   }
@@ -635,7 +636,7 @@ function availability_block_info() {
 /**
  * Implements hook_block_view to set up the list of mediators available at a given period on a given day 
  */ 
-function availability_block_view($delta = '') {
+/*function availability_block_view($delta = '') {
   switch ($delta) {
     case 'mediators':
 	module_load_include('module', 'entity');
@@ -664,25 +665,25 @@ function availability_block_view($delta = '') {
 	
 	// If we find any, load them
     if (sizeof($dvids) >= 1 && sizeof($dvids['availability']) >= 1) {
-	  $results = entity_load('availability', array_keys($dvids['availability']));
+	  $results = entity_load('availability', array_keys($dvids['availability']));*/
 	
 	  /**
 	  * For each availability record found query the user table for the mediator name corresponding to the uid
 	  * in the availability record
 	  */	
-	  foreach ($results as $record) { 
+	  /*foreach ($results as $record) { 
 	    $query = new EntityFieldQuery;
 	    $dvids = $query
 	      ->entityCondition('entity_type', 'user')
           ->propertyCondition('uid', $record->uid)
           ->execute();
-		$this_date = strftime("%Y-%m-%d", $record->start_date);
+		$this_date = strftime("%Y-%m-%d", $record->start_date);*/
 	    /**
 	    * For each availability record found query the user table for the mediator name corresponding to the uid
 	    * in the availability record and add an element to $link_array consisting of an associative array keyed on uid
 		* This array includes positive availability data 
 	    */	
-	    if (sizeof($dvids) >= 1 && sizeof($dvids['user']) >= 1) {
+	    /*if (sizeof($dvids) >= 1 && sizeof($dvids['user']) >= 1) {
 	      $this_user = entity_load('user', array_keys($dvids['user']));
 		  if (in_array('mediator', $this_user[$record->uid]->roles)) {
 	        $link_array[$record->uid]['name'] = $this_user[$record->uid]->name;
@@ -731,19 +732,19 @@ function availability_block_view($delta = '') {
 	  return $block;
 	}
   }
-}
+}*/
 
 /**
  *  Implements hook_theme to provide a presentation layer for the mediator list block
  */
-function availability_theme() {
+/*function availability_theme() {
   return array(
     'mediator_list' => array(
       'template' => 'mediator_list',
       'variables' => array('subject' => NULL),
     ),
   );
-}
+}*/
 
 /**
  *  Implements hook_cron to carry out scheduled tasks.  Specifically maintaining the table that tracks mediator
@@ -753,7 +754,7 @@ function availability_theme() {
  *  the drupal_mail function then availability_last_email is updated in the array of persistent variables. 
  *   
  */
-function availability_cron() {
+/*function availability_cron() {
   module_load_include('inc', 'availability', 'includes/availability');
   module_load_include('module', 'entity');
   $date_limits = availability_week_limits();
@@ -879,7 +880,7 @@ function find_mediator($test_user) {
   else {
     return false;
   }
-}
+}*/
 
 /**
  *  Implements hook_mail to send out reminder email using the user specified template in the admin form.
@@ -912,7 +913,7 @@ function availability_mail($key, &$message, $params) {
  *  to choose the week for the report.
  *  
  */
-function availability_form_alter(&$form, &$form_state, $form_id) {
+/*function availability_form_alter(&$form, &$form_state, $form_id) {
   if ($form_id == "views_exposed_form" && ($form['#id'] == "views-exposed-form-missing-updates-page"  || $form['#id'] == "views-exposed-form-updates-provided-page")) {
     $updates = entity_load('updates');
     $mondays = array();
@@ -930,7 +931,7 @@ function availability_form_alter(&$form, &$form_state, $form_id) {
       $form_state['input']['start_date'] = key($rmondays);
     }
   }
-}
+}*/
 
 /**
  *  Implements hook_preprocess_page to attach the table_style.js script to both the the mediator availability 
@@ -938,7 +939,7 @@ function availability_form_alter(&$form, &$form_state, $form_id) {
  *  Also sends the array of periods to highlight as affected by a meeting to settings for use by jQuery.
  *  
  */
-function availability_preprocess_page(&$vars) {
+/*function availability_preprocess_page(&$vars) {
   if($_GET['q'] == 'mediator-availability' || $_GET['q'] == 'availability-by-mediator'){
   	module_load_include('module', 'entity');
     module_load_include('inc', 'meetings');
@@ -953,7 +954,7 @@ function availability_preprocess_page(&$vars) {
     $scripts = drupal_get_js();
     $vars['scripts'] = $scripts;
   }
-}
+}*/
 
 /**
  *  Finds periods affected by a meeting and builds an array ($meetings_array) with an associative array member 
@@ -1045,7 +1046,7 @@ function meeting_commitments_factory() {
 }
 
 function current_context_factory() {
-  $context = new AvailabilityContext($GLOBALS['user']);
+  $context = new AvailabilityContext();
   return $context;
 }
 
