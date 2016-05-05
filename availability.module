@@ -533,7 +533,6 @@ function availability_form_submit($form, &$form_state) {
     $report = $storage->availabilitySaveEntity($form, $form_state);
   }
   
-  dpm($report);
   $monday = $form_state['availability_context']->availabilityCurrentMonday();
   if (count(array_filter($report)) == $repeat_weeks + 1 ) {
   	// If all requested weeks saved successfully, confirm to user.

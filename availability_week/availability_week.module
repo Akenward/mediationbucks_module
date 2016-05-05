@@ -77,9 +77,9 @@ function availability_week_field_is_empty($item, $field) {
 	  }
 	} 
   }
-  if (!empty($item()) && $item != '') {
+  /*if (!empty($item()) && $item != '') {
   	$field_empty = FALSE;
-  }
+  }*/
   return $field_empty;
 }
 
@@ -269,12 +269,15 @@ function availability_week_field_widget_info() {
  *
  */
 function availability_week_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-  
   switch ($instance['widget']['type']) {
 
     case 'availability_week_table':
 	  $widget = array();
       $widget['#delta'] = $delta;
+	  $widget['#validate'][] = 'availability_week_table_validate';
+	  $widget['widget_info']['#type'] = 'value';
+	  $widget['widget_info']['#value'] = 'availability_week_table';
+	  
       $periods = availability_periods_factory();
       if (isset($items[$delta]) && $items[$delta]['notes']){
 	    $default_notes = ($items[$delta]['notes']);
@@ -339,10 +342,11 @@ function availability_week_field_widget_form(&$form, &$form_state, $field, $inst
 		  }
 		  $widget['week_table']['data_grid']['column_' . $m_t]['cell_' . $m_t . '_' . $m_d] = array(
 		    '#type' => 'container',
-		    //'#tree' => TRUE,
+		    
 		    '#attributes' => array('class' => array('availability-data-cell')),
 		    $m_t . '_' . $m_d => array(
 			  '#type' => 'select',
+			  '#value_callback' => 'availability_week_table_value',
 			  '#options' => array(
 			    1 => '0',
 			    2 => '1',
@@ -363,15 +367,16 @@ function availability_week_field_widget_form(&$form, &$form_state, $field, $inst
 	  );
 	    
 	  // Control for notes for the week
-	  $widget['notes'] = array(
+	  $widget['notes_control'] = array(
 		'#type' => 'container',
 		'#weight' => 4,
 		'#attributes' => array('class' => array('availability-notes-container textarea-container')),
-		'notes_control' => array(
+		'notes' => array(
 		  '#type' => 'textarea',
 		  '#title' => 'Notes',
 		  '#attributes' => array('class' => array('availability-notes')),
 		  '#default_value' => $default_notes,
+		  '#value_callback' => 'availability_week_table_value',
 		),
 	  );
 	  // Add css to format the table.
@@ -384,30 +389,17 @@ function availability_week_field_widget_form(&$form, &$form_state, $field, $inst
 	break;
   }
   $element += $widget;
+  //$element['#tree'] = FALSE;
   return $element;
 }
 
-function availability_week_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
-  switch ($field['type']) {
-  	case 'availability_week_data':
-	  //dpm($items);
-	  $periods = availability_periods_factory();
-	  foreach($items as $delta => $item) {
-	    // Copy the availability column key and value pairs to the top level of the $item array
-	    foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
-		  foreach ($periods -> availabilityDays() as $m_d => $m_day) {
-		    if (isset($items[$delta]['week_table']['data_grid']['column_'.$m_t]['cell_'.$m_t .'_' . $m_d][$m_t .'_' . $m_d])){
-		  	  $items[$delta][$m_t .'_' . $m_d] = (string)$items[$delta]['week_table']['data_grid']['column_'.$m_t]['cell_'.$m_t .'_' . $m_d][$m_t .'_' . $m_d];
-		    }
-		    else {
-			  $items[$delta][$m_t .'_' . $m_d] = '1';
-		    }
-		  }
-	    }
-	  }
-	break;
-	default :
-  }
+function availability_week_table_value($element, $input, &$form_state) {
+  $parents = $element['#parents'];
+  $field_name = $parents[0];
+  $lang = $parents[1];
+  $delta = $parents[2];
+  $column_name = end($parents);
+  $form_state['values'][$field_name][$lang][$delta][$column_name] = $input;
 }
 
 /**
