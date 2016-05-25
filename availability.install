@@ -34,12 +34,6 @@ function availability_schema() {
         'type' => 'int',
         'not null' => TRUE,
       ),
-      'notes' => array(
-        'description' => 'Notes to supplement pro-forma availability data',
-        'type' => 'text',
-        'size' => 'normal',
-        'not null' => FALSE,
-      ),
     ),
     //data will be retrieved principally by week and user
 	'indexes' => array(
@@ -61,7 +55,7 @@ function availability_schema() {
     'primary key' => array('vid'),
   );
   
-  $schema['updates'] = array ( 
+  /*$schema['updates'] = array ( 
     'description' => 'Status of availability updates',
     'title' => 'Status of mediator availabiity reporting',
     'fields' => array(
@@ -104,18 +98,18 @@ function availability_schema() {
 	),
     
     'primary key' => array('sid'),
-  );
+  );*/
   
   return $schema;
 }
 
 /**
- * Implements hook_install() for availability table and availability entity type.
+ * Implements hook_install() for availability entity.
  */
 
 function availability_install(){
-  //Create all the new fields required for the user entity and referring organisation taxonomy vocabulary 
-  // using the helper function _referral_other_fields
+  //Create all the new fields required for the availability entity  
+  // using the helper function _availability_fields
   module_load_include('inc', 'availability', 'includes/fields');
   foreach (_availability_fields() as $field) {
     if (!field_info_field($field['field_name'])) {
@@ -123,27 +117,27 @@ function availability_install(){
 	}
   }
 
-  //Create all the new instances required for the user entity and referring organisation taxonomy vocabulary 
-  // using the helper function _referral_other_instances
+  //Create all the new instances required for the availability entity   
+  // using the helper function _availability_instances
   module_load_include('inc', 'availability', 'includes/instances');
   foreach (_availability_instances() as $instance) {
-    if (!field_info_instance('node', $instance['field_name'], $instance['bundle'])) {
+    if (!field_info_instance('availability', $instance['field_name'], $instance['bundle'])) {
       field_create_instance($instance);
 	}
   }
 }
 
 function availability_uninstall(){
-  // Delete all the new instances added to the user entity and referring organisation taxonomy vocabulary 
+  // Delete all the new instances added to the availability entity  
   // using the helper function _availability_instances
   module_load_include('inc', 'availability', 'includes/instances');
   foreach (_availability_instances() as $instance) {
-    if (field_info_instance('node', $instance['field_name'], $instance['bundle'])) {
+    if (field_info_instance('availability', $instance['field_name'], $instance['bundle'])) {
       field_delete_instance($instance);
 	}
   }
   
-  // Delete all the new fields added to the user entity and referring organisation taxonomy vocabulary 
+  // Delete all the new fields added to the availability entity   
   // using the helper function _availability_fields
   module_load_include('inc', 'availability', 'includes/fields');
   foreach (_availability_fields() as $field) {
@@ -151,8 +145,6 @@ function availability_uninstall(){
       field_delete_field($field['field_name']);
 	}
   }
-
-  
 }	
 
 

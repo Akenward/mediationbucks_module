@@ -108,7 +108,7 @@ div.availability-submit {
 	color: #757575;
 }
 
-.mediator-notes {
+.mediator-notes, .mediator-commitments {
 	color: #0779bf;
 }
 
@@ -130,6 +130,10 @@ div.availability-submit {
 
 .text-vertical-2 {
 	padding-top: 4px;
+}
+
+div.hide-element, span.hide-element {
+    display: none;
 }
 
 .ui-spinner {position: relative; border: 0px solid white; }

@@ -1,23 +1,31 @@
 <?php
 
+module_load_include('module', 'availability_week');	
+
 interface MeetingCommitmentsInterface {
   	
   public function listCommitments();
   
+  public function periodCommitments($week, $slot);
+  
 }
 class MeetingCommitments implements MeetingCommitmentsInterface{
-	
+  
   protected $meetings = array();
   
-  function __construct($uid = NULL, $date = NULL, $time = NULL) {
-  	$date1 = preg_replace('/(\+|-)\d\d:\d\d$/', '', date ( 'c' , $date ));
-  	$date2 = preg_replace('/(\+|-)\d\d:\d\d$/', '', date ( 'c' , $date + 7 * 24 * 60 * 60 ));
+  protected $week;
+  
+  protected $slot;
+  
+  function __construct($uid = NULL, $date = NULL, $time = NULL) {  
   	$meeting_list = array();
   	$query = db_select('field_data_field_meeting', 'x');
     $query->innerJoin('field_data_field_meeting_date', 'd', 'x.field_meeting_target_id = d.entity_id');
     $query->innerJoin('node', 'm', 'x.field_meeting_target_id = m.nid');
     $query->addField('d', 'field_meeting_date_value', 'date');
 	if ($date) {
+	  $date1 = preg_replace('/(\+|-)\d\d:\d\d$/', '', date ( 'c' , $date ));
+  	  $date2 = preg_replace('/(\+|-)\d\d:\d\d$/', '', date ( 'c' , $date + 7 * 24 * 60 * 60 ));
 	  $query->having('(d.field_meeting_date_value BETWEEN :date1 AND :date2)', array(':date1' => $date1, ':date2' => $date2));
 	}
     $query->addField('m', 'title');
@@ -43,7 +51,9 @@ class MeetingCommitments implements MeetingCommitmentsInterface{
   }
   
   public function __destruct() {
-  	$this->meetings = null;
+  	$this->meetings = NULL;
+	$this->week = NULL;
+    $this->slot = NULL;
   }
   
   public function listCommitments() {
@@ -56,68 +66,43 @@ class MeetingCommitments implements MeetingCommitmentsInterface{
   	}
 	return $string;
   }
+
+  public function periodCommitments($week, $slot) {
+  	$this->week = $week;
+	$this->slot = $slot;
+  	$period_commitments = array_filter($this->meetings, array($this, '_filter_slot'));
+  	return $period_commitments;
+  }
   
-  public function loadMeeting($meeting) {
-  	module_load_include('inc', 'availability', 'includes/availability.period');
-    module_load_include('module', 'entity');
-	
-  	if (!isset ($meeting['date']) || !isset($meeting['title']) || !isset($meeting['uid']) || !isset($meeting['name']) || !isset($meeting['duration'])) {
-      return false;
-    }
-	else {
-	  $this->meetings[] = $meeting;
-	  return true;
+  function _filter_slot($var) {
+  	$availability_settings = variable_get("availability_settings", array());
+	$day_of_week = substr($this->slot, 2, 2);
+	$time_of_day = substr($this->slot, 0, 1);
+	$periods = availability_periods_factory();
+	$day_start = $this->week + 24 * 60 * 60 * $periods->availabilityDays('num')[$day_of_week];
+	$day_end = $day_start + 24 * 60 * 60;
+	$travel_time = $availability_settings['availability_travelling_time'];
+  	$meeting_start = strtotime($var['date']);
+	$meeting_end = strtotime('+ '.$var['duration'], $meeting_start);
+	if ($travel_time) {
+	  $meeting_start = strtotime('- '.$travel_time, $meeting_start);
+	  $meeting_end = strtotime('+ '.$travel_time, $meeting_end);
 	}
-  }
-  public function checkPeriod($monday, $d, $t, $travel = true) {
-  	$availability_settings= variable_get("availability_settings", array());
-  	$mediators = array();
-  	$date = dateConvert($monday, $d);
-	if ($travel) {
-  	  $margin = $availability_settings['availability_travelling_time'];
-  	}
-	else {
-	  $margin = '0 hours';
+	$end_morning_parts = explode (':', $availability_settings['availability_end_morning']);
+    $end_morning = $day_start + $end_morning_parts[0] * 3600 + $end_morning_parts[1] * 60;
+	$end_afternoon_parts = explode (':', $availability_settings['availability_end_afternoon']);
+	$end_afternoon = $day_start + $end_afternoon_parts[0] * 3600 + $end_afternoon_parts[1] * 60;
+	if ($meeting_end < $day_start || $meeting_start > $day_end) {
+	  return FALSE;
 	}
-  	foreach ($this->meetings as $meeting) {
-  	  if (substr($meeting['date'],0,10) == $date->format('Y-m-d')) {
-  	  	$end_date = date('Y-m-d H.i.s', strtotime($meeting['date'] . ' + ' . $meeting['duration'] . ' + ' . $margin));
-		$start_date = date('Y-m-d H.i.s', strtotime($meeting['date'] . ' - ' . $margin));
-  	  	if (dateCompare($start_date, $t) || dateCompare($end_date, $t)) {
-  	  	  $date_text = date('Y-m-d', strtotime($meeting['date']));
-		  $time_text = date('H:i', strtotime($meeting['date']));
-			
-		  $mediators[]= array(
-		    'uid' => $meeting['uid'],
-		    'title' => $meeting['title'],
-		    'name' => $meeting['name'],
-		    'date' => $date_text,
-		    'time' => $time_text,
-		  );
-  	    }
-      }  
+	switch ($time_of_day){
+	  case 'm':
+		return $meeting_start <= $end_morning;
+	  case 'a':
+		return ($meeting_end >= $end_morning && $meeting_start <= $end_morning)
+		  || ($meeting_start <= $end_afternoon && $meeting_end >= $end_afternoon);
+	  default:
+	    return $meeting_end >= $end_afternoon;
 	}
-	return $mediators;
-  }
-  function dateCompare($date_string, $t) {
-    $availability_settings= variable_get("availability_settings", array());
-    module_load_include('inc', 'availability', 'includes/availability');
-    $time_hours = substr($date_string, 11, 2);
-	$time_minutes = substr($date_string, 14, 2);
-	$time = $time_hours + $time_minutes/60;
-	$end_morning = explode(':', $availability_settings['availability_end_morning']);
-	$end_morning_hours = $end_morning[0] + $end_morning[1]/60;
-	$end_afternoon = explode(':', $availability_settings['availability_end_afternoon']);
-	$end_afternoon_hours = $end_afternoon[0] + $end_afternoon[1]/60;
-	if ($time <= $end_morning_hours && $t == 'm')  {
-      return TRUE;
-	}
-  	if ($time >= $end_morning_hours && $time <= $end_afternoon_hours && $t == 'a') {
-  	  return TRUE;
-  	}
-	if ($time >= $end_afternoon_hours && $t == 'e') {
-	  return TRUE;
-	}
-	return FALSE;
   }
 }

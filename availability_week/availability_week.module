@@ -243,7 +243,6 @@ function availability_week_field_formatter_view($entity_type, $entity, $field, $
 	    }
     break;
   }
-//dpm($element);
   return $element;
 }
 

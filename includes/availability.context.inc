@@ -6,6 +6,10 @@ interface AvailabilityContextInterface {
   
   public function availabilityCurrentMonday();
   
+  public function availabilityExpiryDate();
+  
+  public function availabilityCurrentWeeks();
+  
   public function setCurrentMediator($mediator);
   
   public function nextMonday();
@@ -36,6 +40,20 @@ class AvailabilityContext implements AvailabilityContextInterface{
   
   public function availabilityCurrentMonday() {
   	return (clone $this->monday);
+  }
+  
+  public function availabilityExpiryDate() {
+  	return (clone $this->date_limits['delete']);
+  }
+  
+  public function availabilityCurrentWeeks() {
+  	$current_mondays = array();
+  	$monday = clone $this->date_limits['lower'];
+	while ($monday <= $this->date_limits['upper']) {
+	  $current_mondays[] = clone $monday;
+	  $monday->modify('+1 week');
+	}
+	return $current_mondays;
   }
   
   public function setCurrentMediator($mediator) {
@@ -90,7 +108,6 @@ class AvailabilityContext implements AvailabilityContextInterface{
   $date_limits['default'] = clone($date_limits['lower']);
   do {
   	date_modify($date_limits['default'], '+1 week');
-	
   } while ($date_today->diff($date_limits['default'])->format('%R%a')  < $availability_settings['availability_default_week']);
   $date_limits['upper'] = clone($date_limits['default']);
   do {
