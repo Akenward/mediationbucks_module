@@ -57,6 +57,7 @@ class AvailabilityStorage implements AvailabilityStorageInterface {
       ->entityCondition('entity_type', 'availability')
       ->propertyCondition('uid', $mediator_uid)
       ->propertyCondition('start_date', $date_stamp)
+	  ->propertyOrderBy('start_date', 'DESC')
       ->execute();
 	  
     if (sizeof($dvids) > 0 && sizeof($dvids['availability']) > 0) {
@@ -76,7 +77,6 @@ class AvailabilityStorage implements AvailabilityStorageInterface {
   
   public function availabilityHousekeeping() {
   	$date_stamp = $this->context->availabilityExpiryDate()->format("U");
-	watchdog('availability', $date_stamp);
   	$query = new EntityFieldQuery;
     $dvids = $query
       ->entityCondition('entity_type', 'availability')
@@ -86,10 +86,10 @@ class AvailabilityStorage implements AvailabilityStorageInterface {
       $report = entity_delete_multiple('availability', array_keys($dvids['availability']));
 	  $number = count(array_keys($dvids['availability']));
 	  if ($report === FALSE) {
-	  	watchdog('availability', 'Failure to delete expired availability records in Cron run.', WATCHDOG_ERROR);
+	  	watchdog('availability', 'Failure to delete expired availability records in Cron run.', array(), WATCHDOG_ERROR);
 	  }
 	  else {
-	  	watchdog('availability', $number . ' expired availability records deleted by Cron.', WATCHDOG_INFO);
+	  	watchdog('availability', $number . ' expired availability records deleted by Cron.', array(), WATCHDOG_INFO);
 	  }
 	}
 	// Check if there are availability records set up for each week in the current range for the correct number of live mediators

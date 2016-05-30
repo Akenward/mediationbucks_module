@@ -22,7 +22,7 @@ function availability_week_field_info() {
       'label' => t('Mediator availability'),
       'description' => t('Holds a weeks mediator availability data.'),
       'default_formatter' => 'availability_week_print',
-      'default_widget' => 'availability_week_table',
+      'default_widget' => 'availability_week_tiles',
       'property_type' => 'availability_week_data',
       'property_callbacks' => array('availability_week_data_property_info_callback'),
     ),
@@ -77,9 +77,6 @@ function availability_week_field_is_empty($item, $field) {
 	  }
 	} 
   }
-  /*if (!empty($item()) && $item != '') {
-  	$field_empty = FALSE;
-  }*/
   return $field_empty;
 }
 
@@ -90,7 +87,6 @@ function availability_week_field_is_empty($item, $field) {
  */
 function availability_week_field_formatter_info() {
   return array(
-    // This formatter just displays the hex value in the color indicated.
     'availability_week_print' => array(
       'label' => t('Formatted table of availability data'),
       'field types' => array('availability_week_data'),
@@ -215,11 +211,6 @@ function availability_week_field_formatter_view($entity_type, $entity, $field, $
 	  foreach ($items as $delta => $item) {
         $element['#delta'] = $delta;
         $periods = availability_periods_factory();
-	    // Create a container for the whole view
-	    /*$element[$delta]['week_table'] = array(
-		  '#type' => 'container',
-		  '#attributes' => array('class' => array('availability-week-table')),
-	    );*/
 	    foreach ($periods -> availabilityTimes() as $m_t => $m_time) {
 		    // For each day, within time of day, add the data cell containing data value to the time of day column    
 		    foreach ($periods -> availabilityDays() as $m_d => $m_day) {
@@ -252,10 +243,6 @@ function availability_week_field_formatter_view($entity_type, $entity, $field, $
  */
 function availability_week_field_widget_info() {
   return array(
-    'availability_week_table' => array(
-      'label' => t('Grid of select controls'),
-      'field types' => array('availability_week_data'),
-    ),
     'availability_week_tiles' => array(
       'label' => t('Grid of clickable tiles'),
       'field types' => array('availability_week_data'),
@@ -268,10 +255,9 @@ function availability_week_field_widget_info() {
  *
  */
 function availability_week_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $widget = array();
   switch ($instance['widget']['type']) {
-
-    case 'availability_week_table':
-	  $widget = array();
+	case 'availability_week_tiles':
       $widget['#delta'] = $delta;
 	  $widget['#validate'][] = 'availability_week_table_validate';
 	  $widget['widget_info']['#type'] = 'value';
@@ -339,20 +325,15 @@ function availability_week_field_widget_form(&$form, &$form_state, $field, $inst
 		  else {
 			$default_value = 2;
 		  }
+		  $availability_status = array('not-available', 'maybe-available', 'available');
 		  $widget['week_table']['data_grid']['column_' . $m_t]['cell_' . $m_t . '_' . $m_d] = array(
 		    '#type' => 'container',
-		    
-		    '#attributes' => array('class' => array('availability-data-cell')),
+		    '#attributes' => array('class' => array('availability-wrapper', $availability_status[$default_value - 1])),
 		    $m_t . '_' . $m_d => array(
-			  '#type' => 'select',
+			  '#type' => 'hidden',
 			  '#value_callback' => 'availability_week_table_value',
-			  '#options' => array(
-			    1 => '0',
-			    2 => '1',
-			    3 => '1.0',
-			  ),
-			  '#default_value' => $default_value,
-			  '#attributes' => array('class' => array('availability-data-box')),
+			  '#default_value' => $default_value, 
+			  '#attributes' => array('class' => array('availability-control')),
 			), 
 		  );
 		}
@@ -382,13 +363,12 @@ function availability_week_field_widget_form(&$form, &$form_state, $field, $inst
       $widget['#attached']['css'] = array(
         drupal_get_path('module', 'availability_week') . '/availability_week.css',
 	  );
-    break;
-	case 'availability_week_tiles':
-		
+	  $widget['#attached']['js'] = array(
+	    drupal_get_path('module', 'availability_week') . '/availability_week.js',
+	  );
 	break;
   }
   $element += $widget;
-  //$element['#tree'] = FALSE;
   return $element;
 }
 

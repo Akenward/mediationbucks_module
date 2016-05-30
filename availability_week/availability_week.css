@@ -1,9 +1,19 @@
 /* Styling for Referrer form elements and containers */ 
 
 .textarea-container {
-	width: 330px;
+	width: 350px;
 	height: 170px;
 	clear: left;
+	margin-top: 10px;
+}
+
+.availability-meeting-container {
+	width: 350px;
+}
+
+.week-commencing-wrapper {
+	width: 350px;
+	margin-bottom: 25px;
 }
 
 .availability-label {
@@ -13,7 +23,7 @@
 }
 
 .availability-row-caption-container, .availability-grid-column-heading {
-	height: 50px;
+	height: 28px;
 }
 
 .availability-dummy-caption-container {
@@ -33,17 +43,14 @@
     white-space: nowrap;
 }
 
-.availability-week-table {
-	width: 350px;
-}
-
 .availability-week-data-grid {
-    width: 250px;
+    display: inline-block;
 }
 
 .availability-week-caption-column,
-.availability-grid-column-container:not(:last-child) {
-	float: left;
+.availability-grid-column-container {
+	display: inline-block;
+	margin-right: 2px;
 }
 
 .availability-week-table > .availability-week-caption-column,
@@ -54,17 +61,18 @@
 }
 
 .availability-week-data-grid > .availability-grid-column-container {
-	width: 80px;
+	width: 86px;
 }
 
-.availability-data-cell {
-	height: 50px;
-	width: 100px;	
+.availability-wrapper{
+	width: 86px;
+	height: 26px;
+	margin-top: 2px;
 }
 
 .availability-grid-column-heading {
 	height: 50px;
-	width: 100px;	
+	width: 86px;	
 }
 
 .grid-column-heading-element {
@@ -95,6 +103,18 @@
 
 .availability-data-row {
 	clear: left;
+}
+
+.available {
+	background-image: url('images/yes.png');
+}
+
+.not-available {
+	background-image: url('images/no.png');
+}
+
+.maybe-available {
+	background-image: url('images/maybe.png');
 }
 
     

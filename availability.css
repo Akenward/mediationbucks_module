@@ -1,5 +1,5 @@
 /* Styling for Referrer form elements and containers */ 
-div.row-labels {
+/*div.row-labels {
     width: 80px;
     float: left;
     line-height: 29px;
@@ -39,25 +39,14 @@ div.form-item-notes {
    clear: left;
    width: 350px;
    margin: 4px;
-}
+}*/
 
 div.availability-submit {
     clear: both;
+    margin-top: 25px;
 }
 
-.available {
-	background-image: url('images/yes.png');
-}
-
-.not-available {
-	background-image: url('images/no.png');
-}
-
-.maybe-available {
-	background-image: url('images/maybe.png');
-}
-
-.has-meeting {
+/*.has-meeting {
 	background-image: url('images/meeting.png');
 }
 
@@ -65,7 +54,7 @@ div.availability-submit {
 	background-color: #bf7207;
 	color: white;
 	cursor: pointer;
-}
+}*/
 
 /* Styling for "availabile mediators" block elements */
 
@@ -83,12 +72,12 @@ div.availability-submit {
 	margin-top: 2px;
 }
 
-.mediator-name-meeting {
+/*.mediator-name-meeting {
 	background-color: #bf7207;
 	padding: 2px;
 	color: white;
 	margin-top: 2px;
-}
+}*/
 
 .mediator-name-hidden {
 	display: none;
@@ -108,8 +97,32 @@ div.availability-submit {
 	color: #757575;
 }
 
-.mediator-notes, .mediator-commitments {
+.mediator-notes-yes, .mediator-commitments {
 	color: #0779bf;
+}
+
+tr td.availability-summary-cell {
+    padding: 0px;
+    border-width: 0px;
+    position: relative;
+}
+
+td input.period-select-button {
+    background: none;
+    border-style: none;
+    border-radius: 0;
+    border-width: 0;
+    padding: 0;
+    margin: 0;
+    width: 45px;
+    height: 30px;
+}
+
+td input.period-select-button:hover,
+    input.period-select-button:focus {
+    background: none;
+    border: 1px solid rgb(86, 180, 239);
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.05) inset, 0px 0px 8px rgba(82, 168, 236, 0.6);
 }
 
 .mediator-notes-meeting {
@@ -117,7 +130,8 @@ div.availability-submit {
 }
 
 .repeat-group {
-	float: left;
+	display: inline-block;
+	/*float: left;*/
 	font-style: normal;
 	padding-left: 5px;
 	padding-right: 5px;
@@ -135,6 +149,21 @@ div.availability-submit {
 div.hide-element, span.hide-element {
     display: none;
 }
+ 
+/* these apply to all ajax progresses */
+.ajax-progress {
+  display: inline-block;
+  position: absolute;
+  top: 0px;
+  left: 4px;
+  *display: inline;
+  *zoom: 1;
+}
+.ajax-progress .throbber {
+  background: transparent url("images/ajax-loader.gif") no-repeat 0px 0px;
+  float: left;
+  height: 30px;
+  width: 30px;
 
 .ui-spinner {position: relative; border: 0px solid white; }
 .ui-spinner-buttons {position: absolute}

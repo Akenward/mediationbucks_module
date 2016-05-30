@@ -3,8 +3,6 @@ description = Provides a field for availability records.
 
 files[] = includes/availability.periods.inc
 
-stylesheets[all][] = availability_week.css
-
 dependencies[] = entity
 dependencies[] = ctools
 dependencies[] = date

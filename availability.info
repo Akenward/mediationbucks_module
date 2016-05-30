@@ -1,8 +1,6 @@
 name = Availability
 description = Enables users to create and update availability.
 
-stylesheets[all][] = availability.css
-
 files[] = availability_week/includes/availability.periods.inc
 files[] = availability.views.inc
 files[] = includes/availability.meetings.inc
