@@ -164,6 +164,12 @@ div.hide-element, span.hide-element {
   float: left;
   height: 30px;
   width: 30px;
+}
+  
+ /*input#edit-number-weeks {
+   text-align: right;
+   width: 60px;
+ }*/
 
 .ui-spinner {position: relative; border: 0px solid white; }
 .ui-spinner-buttons {position: absolute}

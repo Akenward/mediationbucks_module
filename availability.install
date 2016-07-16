@@ -55,51 +55,6 @@ function availability_schema() {
     'primary key' => array('vid'),
   );
   
-  /*$schema['updates'] = array ( 
-    'description' => 'Status of availability updates',
-    'title' => 'Status of mediator availabiity reporting',
-    'fields' => array(
-      'sid' => array(
-        'description' => 'Primary key for the table of availability records',
-        'type' => 'serial',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-       ),
-      'start_date' => array(
-        'description' => 'The datetime for the Monday starting the week',
-        'type' => 'int',
-        'not null' => TRUE,
-      ),
-      'uid' => array(
-        'type' => 'int',
-        'unsigned' => TRUE,
-        'not null' => TRUE,
-        'description' => "The {users}.uid of the associated user.",
-      ),
-      'mediator_name' => array(
-        'description' => 'Mediator name',
-        'type' => 'varchar',
-	    'length' => 255,
-      ),
-      'report_status' => array(
-        'description' => 'Mediator availability update status',
-        'type' => 'int',
-        'not null' => TRUE,
-      ),
-    ),
-    //data will be retrieved principally by week and user
-	'indexes' => array(
-      'mediator_name' => array('mediator_name'),
-      'start_date' => array('start_date'),
-    ),
-    // there should only be one record for any combination of mediator and week
-    'unique keys' => array(
-	  'mediator_date' => array('mediator_name', 'start_date'),
-	),
-    
-    'primary key' => array('sid'),
-  );*/
-  
   return $schema;
 }
 
@@ -108,7 +63,7 @@ function availability_schema() {
  */
 
 function availability_install(){
-  //Create all the new fields required for the availability entity  
+  // Create the new field field_availability_week required for the availability entity  
   // using the helper function _availability_fields
   module_load_include('inc', 'availability', 'includes/fields');
   foreach (_availability_fields() as $field) {
@@ -117,7 +72,7 @@ function availability_install(){
 	}
   }
 
-  //Create all the new instances required for the availability entity   
+  //Create the new instance of field_availability_week required for the availability entity   
   // using the helper function _availability_instances
   module_load_include('inc', 'availability', 'includes/instances');
   foreach (_availability_instances() as $instance) {
@@ -125,10 +80,30 @@ function availability_install(){
       field_create_instance($instance);
 	}
   }
+  // Set up default values for the module configuration parameters
+  $availability_settings = variable_get("availability_settings", array());
+  if (empty($availability_settings)) {
+    $availability_settings = array (
+      'availability_start_limit' => '3',
+      'availability_end_limit' => '17',
+      'availability_default_week' => '3',
+      'availability_delete_week' => '10',
+      'availability_end_morning' => '12:00',
+      'availability_end_afternoon' => '18:00',
+      'availability_travelling_time' => '90 minutes',
+      'availability_prompt_day' => 'friday',
+      'availability_exit_protection' => 1,
+      'availability_weekly_reminder' => 0,
+      'availability_email_subject' => 'Availability w/c [week-commencing]',
+      'availability_email_body' => 'Dear mediator, Please update your availability via the on-line system or by email for the week commencing [week_commencing]. If you are sending an email, it would be helpful if you can split your response into morning, afternoon and evening sessions eg. mon am, wed pm, fri eve. If you are unsure of your availability for that week, the on-line system allows you to set a period as "maybe" and to add a note. If you are sending an email, you could include a request to "check with me". Rest assured, we will always check that you are still available before allocating a case to you. Follow this link to the on-line availability system [site_link]. Many thanks for all your help, Henza & Sharon',
+      'availability_last_email' => NULL,
+    );
+	variable_set("availability_settings", $availability_settings);
+  }
 }
 
 function availability_uninstall(){
-  // Delete all the new instances added to the availability entity  
+  // Delete the new instances added to the availability entity  
   // using the helper function _availability_instances
   module_load_include('inc', 'availability', 'includes/instances');
   foreach (_availability_instances() as $instance) {
@@ -137,7 +112,7 @@ function availability_uninstall(){
 	}
   }
   
-  // Delete all the new fields added to the availability entity   
+  // Delete the new fields added to the availability entity   
   // using the helper function _availability_fields
   module_load_include('inc', 'availability', 'includes/fields');
   foreach (_availability_fields() as $field) {
@@ -145,14 +120,7 @@ function availability_uninstall(){
       field_delete_field($field['field_name']);
 	}
   }
+  // Unset the module configuration parameters
+  variable_del($availability_settings);
 }	
-
-
-
-
-  
-
-
-
-
 

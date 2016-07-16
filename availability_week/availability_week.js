@@ -4,8 +4,9 @@
   var click = false; // Allow Submit/Edit button
   var edit = false; // Dirty form flag
   
-  Drupal.behaviors.availability = {
+  Drupal.behaviors.availability_week = {
     attach: function (context, settings) {
+
       //code starts
       var control_wrappers = $('div.availability-wrapper');
     
